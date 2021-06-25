@@ -28,7 +28,7 @@ extend_content_security_policy(script_src: [:unsafe_eval])
 # Changes X-Frame-Options so the site can be embedded in an iframe. See:
 # https://github.com/BeXcellent/discourse-allowiframe/blob/master/plugin.rb
 # https://github.com/TheBunyip/discourse-allow-same-origin/blob/master/plugin.rb
-# Rails.application.config.action_dispatch.default_headers.merge!({'X-Frame-Options' => 'ALLOWALL'})
+Rails.application.config.action_dispatch.default_headers.merge!({'X-Frame-Options' => 'ALLOWALL'})
 
 # Monkey-ptach the tags:show_latest controller, so that it returns an empty list
 # instead of a 404 exception when the tag doesn't exist. Thisserver-side part
