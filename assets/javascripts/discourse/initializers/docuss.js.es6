@@ -19,9 +19,12 @@ export default {
   name: 'docuss',
   initialize(container, app) {
     //----------------------------------------------------------------------------
-
+    // TODO-start
+    Discourse.application = Discourse; // this was added because there were other places where SiteSettings were accessed from application
+    // should be removed later
+    // TODO-eeend
     // If plugin is disabled, quit
-    if (!Discourse.SiteSettings['docuss_enabled']) {
+    if (!Discourse.application.SiteSettings['docuss_enabled']) {
       return
     }
 
