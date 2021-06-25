@@ -21,7 +21,7 @@ export default {
     //----------------------------------------------------------------------------
 
     // If plugin is disabled, quit
-    if (!Discourse.application.SiteSettings['docuss_enabled']) {
+    if (!Discourse.SiteSettings['docuss_enabled']) {
       return
     }
 
