@@ -42,7 +42,7 @@ export function onAfterRender(container) {
     </div>
   `)
 
-  $('#main-outlet').wrap('<div id="dcs-right"></div>')
+  $('#main-outlet-wrapper').wrap('<div id="dcs-right"></div>')
 
   // Prevent scrolling of the Discourse page (right) when scrolling in iframe
   // reaches top / bottom.
