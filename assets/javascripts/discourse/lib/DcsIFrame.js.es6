@@ -40,7 +40,7 @@ export class DcsIFrame {
     */
 
 		// Check Discourse settings
-		const jsonUrlsStr = Discourse.application.SiteSettings['docuss_website_json_file']
+		const jsonUrlsStr = container.lookup('site-settings:main')['docuss_website_json_file']
 		if (!jsonUrlsStr) {
 			this._displayError(
 				'Error in Discourse settings',
@@ -60,7 +60,7 @@ export class DcsIFrame {
 			this.readyPromise = Promise.reject('Docuss error, see the home page')
 			return
 		}
-		if (!Discourse.application.SiteSettings['tagging_enabled']) {
+		if (!container.lookup('site-settings:main')['tagging_enabled']) {
 			this._displayError(
 				'Error in Discourse settings',
 				'"tagging enabled" must be set to true'
@@ -68,7 +68,7 @@ export class DcsIFrame {
 			this.readyPromise = Promise.reject('Docuss error, see the home page')
 			return
 		}
-		const proxyUrl = Discourse.application.SiteSettings['docuss_proxy_url']
+		const proxyUrl = container.lookup('site-settings:main')['docuss_proxy_url']
 		if (proxyUrl) {
 			try {
 				this.parsedProxyUrl = new URL(proxyUrl)
@@ -84,11 +84,11 @@ export class DcsIFrame {
 
 		/*
     // Unfortunately, those 2 settings are server-side only
-    if (Discourse.application.SiteSettings.allow_duplicate_topic_titles < DcsTag.MIN_TAG_LENGTH) {    
+    if (container.lookup('site-settings:main').allow_duplicate_topic_titles < DcsTag.MIN_TAG_LENGTH) {    
       settingsError('"allow duplicate topic titles" must be set to true')
       return
     }  
-    if (Discourse.application.SiteSettings.min_trust_to_create_tag !== '0') {    
+    if (container.lookup('site-settings:main').min_trust_to_create_tag !== '0') {    
       settingsError(`"min trust to create tags" must be set to 0`)
       return
     }
@@ -107,7 +107,7 @@ export class DcsIFrame {
 
 				// Check tag max length against Discourse settings
 				const maxTagLength1 = DcsTag.maxTagLength()
-				const maxTagLength2 = Discourse.application.SiteSettings['max_tag_length']
+				const maxTagLength2 = container.lookup('site-settings:main')['max_tag_length']
 				if (maxTagLength1 > maxTagLength2) {
 					throw `dcsTag=${JSON.stringify(
 						DcsTag.getSettings()
@@ -116,7 +116,7 @@ export class DcsIFrame {
 
 				// Check tag case against Discourse settings
 				const forceLowercase1 = DcsTag.getSettings().forceLowercase
-				const forceLowercase2 = Discourse.application.SiteSettings['force_lowercase_tags']
+				const forceLowercase2 = container.lookup('site-settings:main')['force_lowercase_tags']
 				if (forceLowercase1 !== forceLowercase2) {
 					throw `dcsTag.forceLowercase=${forceLowercase1} doesn't match Discourse setting "force lowercase tags"=${forceLowercase2}`
 				}
