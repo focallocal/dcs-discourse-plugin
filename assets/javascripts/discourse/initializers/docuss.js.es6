@@ -24,7 +24,7 @@ export default {
     // should be removed later
     // TODO-eeend
     // If plugin is disabled, quit
-    if (!Discourse.application.SiteSettings['docuss_enabled']) {
+    if (!container.lookup('site-settings:main')['docuss_enabled']) {
       return
     }
 
