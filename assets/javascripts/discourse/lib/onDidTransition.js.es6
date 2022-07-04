@@ -78,12 +78,12 @@ function onDidTransition3({ container, iframe, routeName, queryParamsOnly }) {
   if (routeName === 'tags.intersection') {
     const route = container.lookup('route:tags.intersection')
     const model = route['currentModel']
-    if (model['id'] === 'dcs-comment' || model['id'] === 'dcs-discuss') {
-      const tag = route.get('additionalTags')[0]
+    if (model.tag.id === 'dcs-comment' || model.tag.id === 'dcs-discuss') {
+      const tag = model.additionalTags[0]
       const parsed = DcsTag.parse(tag)
       if (parsed) {
         const { pageName, triggerId } = parsed
-        const isCommentMode = model['id'] === 'dcs-comment'
+        const isCommentMode = model.tag.id === 'dcs-comment'
         const interactMode = isCommentMode ? 'COMMENT' : 'DISCUSS'
         const layout = container.dcsLayout.getShowRightQP() ? 3 : 2
         const dcsRoute = { layout, pageName, triggerId, interactMode }
