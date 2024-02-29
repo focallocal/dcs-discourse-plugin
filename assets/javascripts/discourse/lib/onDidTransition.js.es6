@@ -236,9 +236,11 @@ function redirect(container, transition, ...args) {
 */
 //------------------------------------------------------------------------------
 
+import { schedule } from '@ember/runloop'
+
 const afterRender = res =>
   new Promise(resolve => {
-    Ember.run.schedule('afterRender', null, () => resolve(res))
+    schedule('afterRender', null, () => resolve(res))
   })
 
 //------------------------------------------------------------------------------

@@ -855,10 +855,12 @@ const get = url =>
 		$.get(url, data => resolve(data)).fail(() => reject(`get "${url}" failed`))
 	})
 
-const afterRender = res =>
-	new Promise(resolve => {
-		Ember.run.schedule('afterRender', null, () => resolve(res))
-	})
+import { schedule } from '@ember/runloop'
+
+	const afterRender = res =>
+	  new Promise(resolve => {
+		schedule('afterRender', null, () => resolve(res))
+	  })
 
 // Return null if "route" doesn't match one of the redirect rules
 // Return the destination route if it does

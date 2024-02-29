@@ -229,8 +229,9 @@ export default {
   }
 }
 
+import { schedule } from '@ember/runloop'
+
 const afterRender = res =>
   new Promise(resolve => {
-    // @ts-ignore
-    Ember.run.schedule('afterRender', null, () => resolve(res))
+    schedule('afterRender', null, () => resolve(res))
   })
