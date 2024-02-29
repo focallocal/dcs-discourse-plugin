@@ -164,13 +164,19 @@ export default {
 
     //----------------------------------------------------------------------------
 
+    import ComposerController from 'discourse/controllers/composer';
+
     ComposerController.reopen({
-      composeStateChanged: Ember.observer('model.composeState', function() {
+      composeStateChanged: function() {
         // We are going to do something when the composer opens
-        const state = this.get('model.composeState')
-        if (state !== Composer.OPEN) {
-          return
+        const state = this.get('model.composeState');
+        if (state !== this.constructor.OPEN) {
+          return;
         }
+    
+      }.observes('model.composeState')
+    });
+    
 
         // Cases that are interesting for us:
         // - When the composer opens as "New Topic" on a Docuss tag, in which
