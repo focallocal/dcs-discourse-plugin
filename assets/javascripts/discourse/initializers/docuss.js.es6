@@ -165,6 +165,7 @@ export default {
     //----------------------------------------------------------------------------
 
 import ComposerController from 'discourse/controllers/composer';
+import { schedule } from '@ember/runloop';
 
 ComposerController.reopen({
   init() {
@@ -174,15 +175,22 @@ ComposerController.reopen({
     this.addObserver('model.composeState', this, this.composeStateChanged);
   },
 
-  composeStateChanged() {
+  composeStateChanged: function() {
     // We are going to do something when the composer opens
     const state = this.get('model.composeState');
-    if (state !== Composer.OPEN) {
+    if (state !== this.constructor.OPEN) {
       return;
     }
     // Your logic here...
+  },
+
+  afterRender: function(res) {
+    return new Promise(resolve => {
+      schedule('afterRender', null, () => resolve(res));
+    });
   }
 });
+
 
 
         // Cases that are interesting for us:
