@@ -167,7 +167,8 @@ export default {
 import ComposerController from 'discourse/controllers/composer';
 import { schedule } from '@ember/runloop';
 
-ComposerController.reopen({
+// Define the ComposerController modifications
+const ComposerControllerModifications = {
   init() {
     this._super(...arguments);
 
@@ -189,7 +190,13 @@ ComposerController.reopen({
       schedule('afterRender', null, () => resolve(res));
     });
   }
-});
+};
+
+// Apply the modifications to the ComposerController
+ComposerController.reopen(ComposerControllerModifications);
+
+// Export the modifications
+export default ComposerControllerModifications;
 
 
 
