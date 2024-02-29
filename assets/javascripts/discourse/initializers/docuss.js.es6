@@ -167,16 +167,23 @@ export default {
 import ComposerController from 'discourse/controllers/composer';
 
 ComposerController.reopen({
-  composeStateChanged: function() {
+  init() {
+    this._super(...arguments);
+
+    // Observer for model.composeState changes
+    this.addObserver('model.composeState', this, this.composeStateChanged);
+  },
+
+  composeStateChanged() {
     // We are going to do something when the composer opens
     const state = this.get('model.composeState');
-    if (state !== this.constructor.OPEN) {
+    if (state !== Composer.OPEN) {
       return;
     }
     // Your logic here...
-  }.observes('model.composeState')
+  }
 });
-    
+
 
         // Cases that are interesting for us:
         // - When the composer opens as "New Topic" on a Docuss tag, in which
