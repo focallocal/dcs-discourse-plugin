@@ -164,18 +164,18 @@ export default {
 
     //----------------------------------------------------------------------------
 
-    import ComposerController from 'discourse/controllers/composer';
+import ComposerController from 'discourse/controllers/composer';
 
-    ComposerController.reopen({
-      composeStateChanged: function() {
-        // We are going to do something when the composer opens
-        const state = this.get('model.composeState');
-        if (state !== this.constructor.OPEN) {
-          return;
-        }
-    
-      }.observes('model.composeState')
-    });
+ComposerController.reopen({
+  composeStateChanged: function() {
+    // We are going to do something when the composer opens
+    const state = this.get('model.composeState');
+    if (state !== this.constructor.OPEN) {
+      return;
+    }
+    // Your logic here...
+  }.observes('model.composeState')
+});
     
 
         // Cases that are interesting for us:
