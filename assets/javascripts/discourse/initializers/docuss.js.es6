@@ -181,7 +181,7 @@ export default {
         // logic can go here...
       }
     });
-
+    
     //----------------------------------------------------------------------------
 
     // Cases that are interesting for us:
@@ -210,7 +210,7 @@ export default {
     shrinkComposer = false;
     container.lookup('router:main').transitionTo(path);
 
-    //----------------------------------------------------------------------------
+    }),
 
     tagsChanged: Ember.observer('model.tags', function() {
       // See if it is a balloon tag
@@ -239,7 +239,7 @@ export default {
 
     //----------------------------------------------------------------------------
   }
-};
+}
 
 import { schedule } from '@ember/runloop';
 
