@@ -177,63 +177,62 @@ ComposerController.reopen({
     const state = this.get('model.composeState');
     if (state !== Composer.OPEN) {
       return;
+     }
+     // logic can go here...
     }
-    // logic can go here...
-  }
-});
+ });
 
+    // Cases that are interesting for us:
+    // - When the composer opens as "New Topic" on a Docuss tag, in which
+    // case model.tags will contain 2 dcs tags
+    // - When the composer opens as "New Reply" on a Docuss topic, in which
+    // case model.topic.tags will contain 2 dcs tags
+    const model = this.get('model')
+    const tags = model['tags'] || (model['topic'] && model['topic']['tags'])
+    const dcsTag = tags && tags.find(t => DcsTag.parse(t))
+    if (!dcsTag) {
+      return
+    }
 
-        // Cases that are interesting for us:
-        // - When the composer opens as "New Topic" on a Docuss tag, in which
-        // case model.tags will contain 2 dcs tags
-        // - When the composer opens as "New Reply" on a Docuss topic, in which
-        // case model.topic.tags will contain 2 dcs tags
-        const model = this.get('model')
-        const tags = model['tags'] || (model['topic'] && model['topic']['tags'])
-        const dcsTag = tags && tags.find(t => DcsTag.parse(t))
-        if (!dcsTag) {
-          return
-        }
+    // When opening (sliding up) the composer with a dcsTag, redirect to the
+    // appropriate route
+    let path
+    const topic = model['topic']
+    if (topic) {
+      path = `/t/${topic['slug']}/${topic['id']}?r=true`
+    } else {
+      const isCommentMode = tags.includes('dcs-comment')
+      const modeTag = isCommentMode ? 'dcs-comment' : 'dcs-discuss'
+      path = `/tags/intersection/${modeTag}/${dcsTag}?r=true`
+    }
+    shrinkComposer = false
+    container.lookup('router:main').transitionTo(path)
 
-        // When opening (sliding up) the composer with a dcsTag, redirect to the
-        // appropriate route
-        let path
-        const topic = model['topic']
-        if (topic) {
-          path = `/t/${topic['slug']}/${topic['id']}?r=true`
-        } else {
-          const isCommentMode = tags.includes('dcs-comment')
-          const modeTag = isCommentMode ? 'dcs-comment' : 'dcs-discuss'
-          path = `/tags/intersection/${modeTag}/${dcsTag}?r=true`
-        }
-        shrinkComposer = false
-        container.lookup('router:main').transitionTo(path)
-      }),
+    //----------------------------------------------------------------------------
 
-      tagsChanged: Ember.observer('model.tags', function() {
-        // See if it is a balloon tag
-        const model = this.get('model')
-        const tags = model && model['tags']
-        const dcsTag = tags && tags.find(tag => DcsTag.parse(tag))
-        if (!dcsTag) {
-          return
-        }
+    tagsChanged: Ember.observer('model.tags', function() {
+      // See if it is a balloon tag
+      const model = this.get('model')
+      const tags = model && model['tags']
+      const dcsTag = tags && tags.find(tag => DcsTag.parse(tag))
+      if (!dcsTag) {
+        return
+      }
 
-        // If we are in comment mode, fill the title with a generic one. This
-        // title will be hidden from the user (see the CSS)
-        const isCommentMode = tags.includes('dcs-comment')
-        if (isCommentMode) {
-          model['setProperties']({
-            ['title']: discourseAPI.commentTopicTitle(dcsTag)
-          })
-          // In composer buttons: "+ Create Topic" => "+ Add Comment"
-          setTimeout(() => {
-            $('#reply-control .save-or-cancel .d-button-label').text(
-              'Add Comment'
-            )
-          }, 0)
-        }
-      })
+      // If we are in comment mode, fill the title with a generic one. This
+      // title will be hidden from the user (see the CSS)
+      const isCommentMode = tags.includes('dcs-comment')
+      if (isCommentMode) {
+        model['setProperties']({
+          ['title']: discourseAPI.commentTopicTitle(dcsTag)
+        })
+        // In composer buttons: "+ Create Topic" => "+ Add Comment"
+        setTimeout(() => {
+          $('#reply-control .save-or-cancel .d-button-label').text(
+            'Add Comment'
+          )
+        }, 0)
+      }
     })
 
     //----------------------------------------------------------------------------
