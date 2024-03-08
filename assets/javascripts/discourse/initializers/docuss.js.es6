@@ -5,14 +5,14 @@ import ComposerController from 'discourse/controllers/composer';
 import Composer from 'discourse/models/composer';
 //import TopicNavigation from 'discourse/components/topic-navigation'
 import SiteHeaderComponent from 'discourse/components/site-header';
-import { setDefaultHomepage } from 'discourse/lib/utilities';
 import { withPluginApi } from 'discourse/lib/plugin-api';
+import { setDefaultHomepage } from 'discourse/lib/utilities';
 
+import { DcsIFrame } from '../lib/DcsIFrame';
+import { DcsTag } from '../lib/DcsTag';
+import { discourseAPI } from '../lib/discourseAPI';
 import { onAfterRender } from '../lib/onAfterRender';
 import { onDidTransition } from '../lib/onDidTransition';
-import { DcsTag } from '../lib/DcsTag';
-import { DcsIFrame } from '../lib/DcsIFrame';
-import { discourseAPI } from '../lib/discourseAPI';
 //import { simplifyTopicStates } from '../lib/simplifyTopicStates.js';
 
 export default {
@@ -93,7 +93,7 @@ export default {
         component['queueRerender']();
       }
     };
-    
+
     //----------------------------------------------------------------------------
 
     let lastUrl = '';
@@ -181,7 +181,7 @@ export default {
         // logic can go here...
       }
     });
-    
+
     //----------------------------------------------------------------------------
 
     // Cases that are interesting for us:
@@ -210,7 +210,9 @@ export default {
     shrinkComposer = false;
     container.lookup('router:main').transitionTo(path);
 
-    }),
+    // Commented out by Andy & Marv
+    // }),
+    },
 
     tagsChanged: Ember.observer('model.tags', function() {
       // See if it is a balloon tag
@@ -235,11 +237,14 @@ export default {
           );
         }, 0);
       }
-    });
+    // Commented out by Andy & Marv
+    // });
+    }),
 
     //----------------------------------------------------------------------------
   }
-}
+// Commented out by Andy & Marv
+// }
 
 import { schedule } from '@ember/runloop';
 
