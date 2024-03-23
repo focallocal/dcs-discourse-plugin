@@ -214,8 +214,11 @@ export default {
     // }),
     },
 
-    tagsChanged: Ember.observer('model.tags', function() {
-      // See if it is a balloon tag
+    import { observes } from "discourse-common/utils/decorators";
+
+    @observes("model.tags")
+    tagsChanged() {
+    // See if it is a balloon tag
       const model = this.get('model');
       const tags = model && model['tags'];
       const dcsTag = tags && tags.find(tag => DcsTag.parse(tag));
