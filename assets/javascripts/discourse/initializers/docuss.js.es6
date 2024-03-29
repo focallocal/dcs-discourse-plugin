@@ -13,6 +13,7 @@ import { DcsTag } from '../lib/DcsTag';
 import { discourseAPI } from '../lib/discourseAPI';
 import { onAfterRender } from '../lib/onAfterRender';
 import { onDidTransition } from '../lib/onDidTransition';
+import { observes } from "discourse-common/utils/decorators";
 //import { simplifyTopicStates } from '../lib/simplifyTopicStates.js';
 
 export default {
@@ -214,44 +215,39 @@ export default {
     // }),
     },
 
-    import { observes } from "discourse-common/utils/decorators";
-
-    @observes("model.tags")
-    tagsChanged() {
-    // See if it is a balloon tag
-      const model = this.get('model');
-      const tags = model && model['tags'];
-      const dcsTag = tags && tags.find(tag => DcsTag.parse(tag));
-      if (!dcsTag) {
-        return;
-      }
-
-      // If we are in comment mode, fill the title with a generic one. This
-      // title will be hidden from the user (see the CSS)
-      const isCommentMode = tags.includes('dcs-comment');
-      if (isCommentMode) {
-        model['setProperties']({
-          ['title']: discourseAPI.commentTopicTitle(dcsTag)
-        });
-        // In composer buttons: "+ Create Topic" => "+ Add Comment"
-        setTimeout(() => {
-          $('#reply-control .save-or-cancel .d-button-label').text(
-            'Add Comment'
-          );
-        }, 0);
-      }
-    // Commented out by Andy & Marv
-    // });
-    }),
-
-    //----------------------------------------------------------------------------
+// Original tagsChanged observer
+tagsChanged: Ember.observer('model.tags', function() {
+  // See if it is a balloon tag
+  const model = this.get('model');
+  const tags = model && model['tags'];
+  const dcsTag = tags && tags.find(tag => DcsTag.parse(tag));
+  if (!dcsTag) {
+    return;
   }
-// Commented out by Andy & Marv
-// }
+}),
 
-import { schedule } from '@ember/runloop';
+// New tagsChanged function with @observes decorator
+tagsChanged: function() {
+  // See if it is a balloon tag
+  const model = this.get('model');
+  const tags = model && model['tags'];
+  const dcsTag = tags && tags.find(tag => DcsTag.parse(tag));
+  if (!dcsTag) {
+    return;
+  }
 
-const afterRender = res =>
-  new Promise(resolve => {
-    schedule('afterRender', null, () => resolve(res));
-  });
+  // If we are in comment mode, fill the title with a generic one. This
+  // title will be hidden from the user (see the CSS)
+  const isCommentMode = tags.includes('dcs-comment');
+  if (isCommentMode) {
+    model['setProperties']({
+      ['title']: discourseAPI.commentTopicTitle(dcsTag)
+    });
+    // In composer buttons: "+ Create Topic" => "+ Add Comment"
+    setTimeout(() => {
+      $('#reply-control .save-or-cancel .d-button-label').text(
+        'Add Comment'
+      );
+    }, 0);
+  }
+}.observes("model.tags"),
