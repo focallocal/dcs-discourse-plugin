@@ -210,44 +210,34 @@ export default {
     }
     shrinkComposer = false;
     container.lookup('router:main').transitionTo(path);
+  },
 
-    // Commented out by Andy & Marv
-    // }),
-    },
+  // New tagsChanged function
+  tagsChanged() {
+    // See if it is a balloon tag
+    const model = this.get('model');
+    const tags = model && model['tags'];
+    const dcsTag = tags && tags.find(tag => DcsTag.parse(tag));
+    if (!dcsTag) {
+      return;
+    }
 
-// Original tagsChanged observer
-tagsChanged: Ember.observer('model.tags', function() {
-  // See if it is a balloon tag
-  const model = this.get('model');
-  const tags = model && model['tags'];
-  const dcsTag = tags && tags.find(tag => DcsTag.parse(tag));
-  if (!dcsTag) {
-    return;
-  }
-}),
+    // If we are in comment mode, fill the title with a generic one. This
+    // title will be hidden from the user (see the CSS)
+    const isCommentMode = tags.includes('dcs-comment');
+    if (isCommentMode) {
+      model['setProperties']({
+        ['title']: discourseAPI.commentTopicTitle(dcsTag)
+      });
+      // In composer buttons: "+ Create Topic" => "+ Add Comment"
+      setTimeout(() => {
+        $('#reply-control .save-or-cancel .d-button-label').text(
+          'Add Comment'
+        );
+      }, 0);
+    }
+  },
 
-// New tagsChanged function with @observes decorator
-tagsChanged: function() {
-  // See if it is a balloon tag
-  const model = this.get('model');
-  const tags = model && model['tags'];
-  const dcsTag = tags && tags.find(tag => DcsTag.parse(tag));
-  if (!dcsTag) {
-    return;
-  }
-
-  // If we are in comment mode, fill the title with a generic one. This
-  // title will be hidden from the user (see the CSS)
-  const isCommentMode = tags.includes('dcs-comment');
-  if (isCommentMode) {
-    model['setProperties']({
-      ['title']: discourseAPI.commentTopicTitle(dcsTag)
-    });
-    // In composer buttons: "+ Create Topic" => "+ Add Comment"
-    setTimeout(() => {
-      $('#reply-control .save-or-cancel .d-button-label').text(
-        'Add Comment'
-      );
-    }, 0);
-  }
-}.observes("model.tags"),
+  // Use observes for tagsChanged function
+  observes("model.tags")
+};
