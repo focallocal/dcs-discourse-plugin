@@ -37,6 +37,12 @@ export default {
         showRight: true,
       });
 
+      // Hide the header-sidebar-toggle element for now, because it doesn't work on docuss.
+      const sidebarToggle = document.querySelector('.header-sidebar-toggle');
+      if (sidebarToggle) {
+        sidebarToggle.style.display = 'none';
+      }
+
       container.dcsHeaderLogo = {
         _logoUrl: null,
         _mobileLogoUrl: null,
