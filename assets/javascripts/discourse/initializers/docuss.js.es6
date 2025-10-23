@@ -1,6 +1,4 @@
-import { observer } from "@ember/object";
 import { schedule } from "@ember/runloop";
-import ComposerController from "discourse/controllers/composer";
 import { withPluginApi } from "discourse/lib/plugin-api";
 import { setDefaultHomepage } from "discourse/lib/utilities";
 import Composer from "discourse/models/composer";
@@ -50,43 +48,47 @@ export default {
           container.dcsHeaderLogo._href = logos?.href;
 
           // Force header rerender using modern Discourse API
-          withPluginApi("0.8.30", (api) => {
-            api.modifyClass("component:site-header", {
-              pluginId: "docuss",
-              logoUrl() {
-                return container.dcsHeaderLogo._logoUrl || this._super();
-              },
-              mobileLogoUrl() {
-                return container.dcsHeaderLogo._mobileLogoUrl || this._super();
-              },
-              smallLogoUrl() {
-                return container.dcsHeaderLogo._smallLogoUrl || this._super();
-              },
-              href() {
-                return container.dcsHeaderLogo._href || this._super();
-              }
-            });
-
-            // Force a header refresh
+          // Update logo elements directly in DOM as modifyClass is deprecated
+          const updateLogoInDom = () => {
             const header = document.querySelector(".d-header");
             if (header) {
+              const logoLink = header.querySelector("#site-logo");
+              const logoImg = header.querySelector(".logo-big, .logo-small");
+
+              if (logoLink && container.dcsHeaderLogo._href) {
+                logoLink.href = container.dcsHeaderLogo._href;
+              }
+
+              if (logoImg && container.dcsHeaderLogo._logoUrl) {
+                logoImg.src = container.dcsHeaderLogo._logoUrl;
+              }
+
+              // Force rerender
               const headerComponent = header.querySelector(".title");
               if (headerComponent) {
                 headerComponent.style.display = "none";
                 setTimeout(() => {
                   headerComponent.style.display = "";
-                }, 0);
+                }, 10);
               }
             }
-          });
+          };
+
+          // Run update immediately and schedule for after render
+          updateLogoInDom();
+          schedule("afterRender", updateLogoInDom);
         },
       };
 
       let lastUrl = "";
       let shrinkComposer = true;
-      withPluginApi("0.8.30", (api) => {
-        // Page changed event
-        api.onAppEvent("page:changed", ({ currentRouteName, title, url }) => {
+      withPluginApi("1.2.0", (api) => {
+        // Use modern Discourse route change handler
+        // Try both old and new event names for compatibility
+        const handlePageChange = (data) => {
+          const currentRouteName = data.currentRouteName || data.routeName;
+          const url = data.url || window.location.href;
+
           if (url === lastUrl) return;
 
           const queryParamsOnly = url.split("?")[0] === lastUrl.split("?")[0];
@@ -103,6 +105,15 @@ export default {
             container.lookup("controller:composer")?.shrink();
           }
           shrinkComposer = true;
+        };
+
+        // Listen to both old and new event names for broader compatibility
+        api.onAppEvent("page:changed", handlePageChange);
+        api.onPageChange(handlePageChange);
+
+        // Also hook into router transitions directly as a fallback
+        api.onPageChange((data) => {
+          handlePageChange(data);
         });
       });
 
@@ -133,50 +144,94 @@ export default {
         }
       }
 
-      // Rest of initialization...
-      ComposerController.reopen({
-        composeStateChanged: observer("model.composeState", function() {
-          const state = this.get("model.composeState");
-          if (state !== Composer.OPEN) return;
+      // Use modern plugin API to handle composer changes
+      withPluginApi("1.2.0", (api) => {
+        // Hook into composer opening
+        api.onAppEvent("composer:opened", () => {
+          schedule("afterRender", () => {
+            const composerController = container.lookup("controller:composer");
+            if (!composerController) return;
 
-          const model = this.get("model");
-          const tags = model.tags || (model.topic && model.topic.tags);
-          const dcsTag = tags && tags.find((t) => DcsTag.parse(t));
-          if (!dcsTag) return;
+            const model = composerController.get("model");
+            if (!model) return;
 
-          let path;
-          const topic = model.topic;
-          if (topic) {
-            path = `/t/${topic.slug}/${topic.id}?r=true`;
-          } else {
+            const state = model.get("composeState");
+            if (state !== Composer.OPEN) return;
+
+            const tags = model.tags || (model.topic && model.topic.tags);
+            const dcsTag = tags && tags.find((t) => DcsTag.parse(t));
+            if (!dcsTag) return;
+
+            let path;
+            const topic = model.topic;
+            if (topic) {
+              path = `/t/${topic.slug}/${topic.id}?r=true`;
+            } else {
+              const isCommentMode = tags.includes("dcs-comment");
+              const modeTag = isCommentMode ? "dcs-comment" : "dcs-discuss";
+              path = `/tags/intersection/${modeTag}/${dcsTag}?r=true`;
+            }
+            shrinkComposer = false;
+            container.lookup("service:router").transitionTo(path);
+          });
+        });
+
+        // Handle tags changes in composer
+        api.onAppEvent("composer:opened", () => {
+          schedule("afterRender", () => {
+            const composerController = container.lookup("controller:composer");
+            if (!composerController) return;
+
+            const model = composerController.get("model");
+            if (!model) return;
+
+            const tags = model?.tags;
+            const dcsTag = tags?.find((tag) => DcsTag.parse(tag));
+            if (!dcsTag) return;
+
             const isCommentMode = tags.includes("dcs-comment");
-            const modeTag = isCommentMode ? "dcs-comment" : "dcs-discuss";
-            path = `/tags/intersection/${modeTag}/${dcsTag}?r=true`;
-          }
-          shrinkComposer = false;
-          container.lookup("service:router").transitionTo(path);
-        }),
+            if (isCommentMode) {
+              model.setProperties({
+                title: discourseAPI.commentTopicTitle(dcsTag),
+              });
 
-        tagsChanged: observer("model.tags", function() {
-          const model = this.get("model");
-          const tags = model?.tags;
-          const dcsTag = tags?.find((tag) => DcsTag.parse(tag));
-          if (!dcsTag) return;
+              // Update composer button text
+              schedule("afterRender", () => {
+                const button = document.querySelector("#reply-control .save-or-cancel .d-button-label");
+                if (button) {
+                  button.textContent = "Add Comment";
+                }
+              });
+            }
+          });
+        });
 
-          const isCommentMode = tags.includes("dcs-comment");
-          if (isCommentMode) {
-            model.setProperties({
-              title: discourseAPI.commentTopicTitle(dcsTag),
-            });
-            
-            // Update composer button text
-            schedule("afterRender", () => {
-              $("#reply-control .save-or-cancel .d-button-label").text(
-                "Add Comment"
+        // Auto-select "hidden" category when composer opens (Task #3)
+        api.onAppEvent("composer:opened", () => {
+          schedule("afterRender", () => {
+            const composerController = container.lookup("controller:composer");
+            if (!composerController) return;
+
+            const model = composerController.get("model");
+            if (!model) return;
+
+            // Only set category if not already set and if creating a new topic
+            const categoryId = model.get("categoryId");
+            const action = model.get("action");
+
+            if (!categoryId && action === Composer.CREATE_TOPIC) {
+              // Find the "hidden" category
+              const appCtrl = container.lookup("controller:application");
+              const hiddenCategory = appCtrl.site.categories.find(
+                c => c.name.toLowerCase() === "hidden"
               );
-            });
-          }
-        }),
+
+              if (hiddenCategory) {
+                model.set("categoryId", hiddenCategory.id);
+              }
+            }
+          });
+        });
       });
     };
 

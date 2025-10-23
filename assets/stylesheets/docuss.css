@@ -446,3 +446,46 @@ html.dcs3 #dcs-right {
   overflow-y: auto; /* Allow for a vertical scrollbar */
   display: none;
 }
+
+/*******************************************************************************
+	Modern Discourse 3.x+ Compatibility (Ember 5, New Sidebar, New Composer)
+*******************************************************************************/
+
+/* Hide dcs tags in modern tag inputs and selectors */
+html.dcs2:not(.dcs-debug) .tag-chooser .selected-tag[data-value^='dcs-'],
+html.dcs2:not(.dcs-debug) .tag-chooser .tag-row[data-tag-name^='dcs-'],
+html.dcs2:not(.dcs-debug) .discourse-tags .discourse-tag[data-tag-name^='dcs-'],
+html.dcs2:not(.dcs-debug) .tag-box[data-tag-name^='dcs-'] {
+  display: none !important;
+}
+
+/* Hide categories in modern composer (Discourse 3.x+) */
+html.dcs2:not(.dcs-debug).dcs-disable-cats .category-chooser,
+html.dcs2:not(.dcs-debug).dcs-disable-cats .select-kit.category-drop,
+html.dcs2:not(.dcs-debug).dcs-disable-cats .category-selector {
+  display: none !important;
+}
+
+/* Modern sidebar compatibility - hide categories in new sidebar */
+html.dcs2:not(.dcs-debug).dcs-disable-cats .sidebar-section-categories,
+html.dcs2:not(.dcs-debug).dcs-disable-cats .sidebar-section[data-section-name="categories"] {
+  display: none !important;
+}
+
+/* Hide tags in modern sidebar */
+html.dcs2:not(.dcs-debug).dcs-hide-tags .sidebar-section-tags,
+html.dcs2:not(.dcs-debug).dcs-hide-tags .sidebar-section[data-section-name="tags"] {
+  display: none !important;
+}
+
+/* Modern hamburger menu (now called sidebar toggle) */
+html.dcs2:not(.dcs-debug).dcs-no-ham-menu .sidebar-toggle,
+html.dcs2:not(.dcs-debug).dcs-no-ham-menu button.btn-sidebar-toggle {
+  display: none !important;
+}
+
+/* Hide category badges in modern topic lists */
+html.dcs2:not(.dcs-debug).dcs-disable-cats .category-badge-wrapper,
+html.dcs2:not(.dcs-debug).dcs-disable-cats .badge-category__wrapper {
+  display: none !important;
+}

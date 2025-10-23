@@ -1,4 +1,5 @@
 import { u } from './utils'
+import { schedule } from '@ember/runloop'
 
 export class DcsLayout {
   constructor(appCtrl) {
@@ -208,7 +209,7 @@ setWideClass()
 
 const afterRender = res =>
   new Promise(resolve => {
-    Ember.run.schedule('afterRender', null, () => resolve(res))
+    schedule('afterRender', null, () => resolve(res))
   })
 
 //------------------------------------------------------------------------------
