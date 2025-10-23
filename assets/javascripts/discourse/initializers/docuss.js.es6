@@ -138,31 +138,18 @@ export default {
             }
             shrinkComposer = true;
           } catch (err) {
-            console.error("Error in page change handler:", err);
-          }
-        };
+              console.error("Error in page change handler:", err);
+            }
+          };
 
-          onDidTransition({
-            container,
-            iframe: dcsIFrame,
-            routeName: currentRouteName,
-            queryParamsOnly,
+          // Listen to both old and new event names for broader compatibility
+          api.onAppEvent("page:changed", handlePageChange);
+          api.onPageChange(handlePageChange);
+
+          // Also hook into router transitions directly as a fallback
+          api.onPageChange((data) => {
+            handlePageChange(data);
           });
-
-          if (shrinkComposer) {
-            container.lookup("controller:composer")?.shrink();
-          }
-          shrinkComposer = true;
-        };
-
-        // Listen to both old and new event names for broader compatibility
-        api.onAppEvent("page:changed", handlePageChange);
-        api.onPageChange(handlePageChange);
-
-        // Also hook into router transitions directly as a fallback
-        api.onPageChange((data) => {
-          handlePageChange(data);
-        });
       });
 
       // Modify iframe creation to use proxy if needed
