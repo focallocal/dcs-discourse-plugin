@@ -185,7 +185,9 @@ export class DcsLayout {
     // This code fails because it performs a computation based on the window
     // width instead of #main-outlet width.
     const forceMobileView = this.saveMobileView || layout === 2 || layout === 3
-    this.appCtrl.site.set('mobileView', forceMobileView)
+    if (this.appCtrl.site && typeof this.appCtrl.site.setProperties === 'function') {
+      this.appCtrl.site.setProperties({ mobileView: forceMobileView });
+    }
 
     this.prevLayout = layout
   }

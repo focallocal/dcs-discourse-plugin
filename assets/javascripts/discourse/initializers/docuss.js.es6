@@ -183,7 +183,7 @@ export default {
             if (!composerController) return;
 
             const model = composerController.get("model");
-            if (!model) return;
+            if (!model || !model.get) return;
 
             const tags = model?.tags;
             const dcsTag = tags?.find((tag) => DcsTag.parse(tag));
@@ -213,7 +213,7 @@ export default {
             if (!composerController) return;
 
             const model = composerController.get("model");
-            if (!model) return;
+            if (!model || !model.get) return;
 
             // Only set category if not already set and if creating a new topic
             const categoryId = model.get("categoryId");
