@@ -3,53 +3,53 @@ import { getOwner } from "discourse-common/lib/get-owner";
 import { schedule } from "@ember/runloop";
 
 export default Component.extend({
-  classNames: ["dcs-layout"],
-  
-  init() {
-    this._super(...arguments);
-    this._setupEventListeners();
-  },
+    classNames: ["dcs-layout"],
 
-  willDestroyElement() {
-    this._super(...arguments);
-    this._cleanupEventListeners();
-  },
+    init() {
+        this._super(...arguments);
+        this._setupEventListeners();
+    },
 
-  _setupEventListeners() {
-    try {
-      // Store listeners for cleanup
-      this._eventListeners = new Set();
-      
-      const addListener = (element, event, handler) => {
-        element.addEventListener(event, handler);
-        this._eventListeners.add(() => element.removeEventListener(event, handler));
-      };
+    willDestroyElement() {
+        this._super(...arguments);
+        this._cleanupEventListeners();
+    },
 
-      // Mobile view handling
-      const appCtrl = getOwner(this).lookup("controller:application");
-      if (appCtrl?.site && typeof appCtrl.site.setProperties === "function") {
-        schedule("afterRender", () => {
-          appCtrl.site.setProperties({ mobileView: this.forceMobileView });
-        });
-      }
+    _setupEventListeners() {
+        try {
+            // Store listeners for cleanup
+            this._eventListeners = new Set();
 
-      // Add other event listeners here
-      // Store cleanup functions in this._eventListeners
+            const addListener = (element, event, handler) => {
+                element.addEventListener(event, handler);
+                this._eventListeners.add(() => element.removeEventListener(event, handler));
+            };
 
-    } catch (err) {
-      console.error("Error setting up DcsLayout event listeners:", err);
+            // Mobile view handling
+            const appCtrl = getOwner(this).lookup("controller:application");
+            if (appCtrl?.site && typeof appCtrl.site.setProperties === "function") {
+                schedule("afterRender", () => {
+                    appCtrl.site.setProperties({ mobileView: this.forceMobileView });
+                });
+            }
+
+            // Add other event listeners here
+            // Store cleanup functions in this._eventListeners
+
+        } catch (err) {
+            console.error("Error setting up DcsLayout event listeners:", err);
+        }
+    },
+
+    _cleanupEventListeners() {
+        try {
+            // Clean up all registered event listeners
+            if (this._eventListeners) {
+                this._eventListeners.forEach(cleanup => cleanup());
+                this._eventListeners.clear();
+            }
+        } catch (err) {
+            console.error("Error cleaning up DcsLayout event listeners:", err);
+        }
     }
-  },
-
-  _cleanupEventListeners() {
-    try {
-      // Clean up all registered event listeners
-      if (this._eventListeners) {
-        this._eventListeners.forEach(cleanup => cleanup());
-        this._eventListeners.clear();
-      }
-    } catch (err) {
-      console.error("Error cleaning up DcsLayout event listeners:", err);
-    }
-  }
 });
