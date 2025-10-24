@@ -1,0 +1,106 @@
+// Variables
+$primary: #222 !default;
+$secondary: #fff !default;
+$tertiary: #08c !default;
+$quaternary: #e45735 !default;
+$header_background: #fff !default;
+$header_primary: #333 !default;
+$highlight: #ffff4d !default;
+$selected: #d1f0ff !default;
+$hover: #f2f2f2 !default;
+$danger: #c80001 !default;
+$success: #090 !default;
+$love: #fa6c8d !default;
+
+// Custom Variables
+$public_image_path: "https://publichappinessmovement.com/images";
+
+// Import Foundation
+@import "common/foundation/variables";
+@import "common/foundation/mixins";
+
+/* Modern Discourse 3.x+ Compatibility */
+.dcs-iframe-container {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 500px;
+  overflow: hidden;
+  background: $secondary;
+  border-radius: 4px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+}
+
+.dcs-iframe {
+  width: 100%;
+  height: 100%;
+  border: none;
+  margin: 0;
+  padding: 0;
+}
+
+.dcs-layout {
+  display: flex;
+  flex-direction: row;
+  height: 100vh;
+  margin-top: -64px;
+  padding-top: 64px;
+
+  &.mobile-view {
+    flex-direction: column;
+  }
+}
+
+.dcs-left {
+  flex: 1;
+  min-width: 0;
+  padding: 1em;
+  overflow-y: auto;
+  background: $secondary;
+}
+
+.dcs-right {
+  flex: 1;
+  min-width: 0;
+  padding: 1em;
+  overflow-y: auto;
+  background: $hover;
+  border-left: 1px solid darken($hover, 5%);
+}
+
+// Responsive Design
+@media (max-width: 850px) {
+  .dcs-layout:not(.mobile-view) {
+    flex-direction: column;
+  }
+
+  .dcs-right {
+    border-left: none;
+    border-top: 1px solid darken($hover, 5%);
+  }
+}
+
+// Composer Modifications
+.dcs-composer {
+  position: fixed;
+  bottom: 0;
+  right: 0;
+  width: 400px;
+  max-width: 100%;
+  z-index: 1000;
+
+  &.collapsed {
+    height: 40px;
+    overflow: hidden;
+  }
+}
+
+// Modern Logo Support
+.title a[href*="publichappinessmovement.com"] {
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+  display: inline-block;
+  width: auto;
+  height: 40px;
+}

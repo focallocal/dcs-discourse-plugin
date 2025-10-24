@@ -19,15 +19,15 @@ export default {
     }
 
     let dcsIFrame;
-    let cleanup = () => {};
+    let cleanup = () => { };
 
     // Initialize plugin
     const initializePlugin = () => {
       setDefaultHomepage("docuss");
-      
+
       // Create the IFrame instance
       dcsIFrame = new DcsIFrame(app, container);
-      
+
       // Wait until page is rendered, then modify stuff
       afterRender().then(() => onAfterRender(container));
 
@@ -63,8 +63,8 @@ export default {
               }
 
               // Update logo image
-              const logoImg = header.querySelector(".logo-big") || 
-                            header.querySelector(".logo-small");
+              const logoImg = header.querySelector(".logo-big") ||
+                header.querySelector(".logo-small");
               if (logoImg && this._logoUrl) {
                 // Create new image to handle load errors
                 const newImg = new Image();
@@ -96,7 +96,7 @@ export default {
           // Schedule update
           schedule("afterRender", updateLogoInDom);
         },
-        
+
         // Add observer support
         addObserver(callback) {
           this._observers.add(callback);
@@ -138,18 +138,18 @@ export default {
             }
             shrinkComposer = true;
           } catch (err) {
-              console.error("Error in page change handler:", err);
-            }
-          };
+            console.error("Error in page change handler:", err);
+          }
+        };
 
-          // Listen to both old and new event names for broader compatibility
-          api.onAppEvent("page:changed", handlePageChange);
-          api.onPageChange(handlePageChange);
+        // Listen to both old and new event names for broader compatibility
+        api.onAppEvent("page:changed", handlePageChange);
+        api.onPageChange(handlePageChange);
 
-          // Also hook into router transitions directly as a fallback
-          api.onPageChange((data) => {
-            handlePageChange(data);
-          });
+        // Also hook into router transitions directly as a fallback
+        api.onPageChange((data) => {
+          handlePageChange(data);
+        });
       });
 
       // Modify iframe creation to use proxy if needed
@@ -159,7 +159,7 @@ export default {
         if (iframe) {
           const originalUrl = iframe.src;
           const proxyUrl = `/proxy?url=${encodeURIComponent(originalUrl)}`;
-          
+
           // Create a new iframe with sandbox attributes
           const newIframe = document.createElement('iframe');
           newIframe.src = proxyUrl;
@@ -168,12 +168,12 @@ export default {
           newIframe.style.width = '100%';
           newIframe.style.height = '100%';
           newIframe.style.border = 'none';
-          
+
           // Add event listener for load errors
           newIframe.onerror = () => {
             console.error('Failed to load iframe content');
           };
-          
+
           // Replace the old iframe
           iframe.parentNode.replaceChild(newIframe, iframe);
         }
