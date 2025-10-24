@@ -13,13 +13,11 @@ export default {
   name: "docuss",
   initialize(container, app) {
     // If plugin is disabled, quit
-    const siteSettings = container.lookup("service:site-settings");
-    if (!siteSettings?.docuss_enabled) {
+    if (!container.lookup("service:site-settings").docuss_enabled) {
       return;
     }
 
     let dcsIFrame;
-    let cleanup = () => {};
 
     // Initialize plugin
     const initializePlugin = () => {
@@ -37,110 +35,64 @@ export default {
         showRight: true,
       });
 
-      // Modern logo management with cleanup and error handling
       container.dcsHeaderLogo = {
         _logoUrl: null,
         _mobileLogoUrl: null,
         _smallLogoUrl: null,
         _href: null,
-        _observers: new Set(),
         setLogo(logos) {
           // Store new values
-          this._logoUrl = logos?.logoUrl;
-          this._mobileLogoUrl = logos?.mobileLogoUrl;
-          this._smallLogoUrl = logos?.smallLogoUrl;
-          this._href = logos?.href;
+          container.dcsHeaderLogo._logoUrl = logos?.logoUrl;
+          container.dcsHeaderLogo._mobileLogoUrl = logos?.mobileLogoUrl;
+          container.dcsHeaderLogo._smallLogoUrl = logos?.smallLogoUrl;
+          container.dcsHeaderLogo._href = logos?.href;
 
+          // Force header rerender using modern Discourse API
+          // Update logo elements directly in DOM as modifyClass is deprecated
           const updateLogoInDom = () => {
-            try {
-              const header = document.querySelector(".d-header");
-              if (!header) return;
-
-              // Update logo link
+            const header = document.querySelector(".d-header");
+            if (header) {
               const logoLink = header.querySelector("#site-logo");
-              if (logoLink && this._href) {
-                logoLink.href = this._href;
+              const logoImg = header.querySelector(".logo-big, .logo-small");
+
+              if (logoLink && container.dcsHeaderLogo._href) {
+                logoLink.href = container.dcsHeaderLogo._href;
               }
 
-              // Update logo image
-              const logoImg = header.querySelector(".logo-big") || 
-                            header.querySelector(".logo-small");
-              if (logoImg && this._logoUrl) {
-                // Create new image to handle load errors
-                const newImg = new Image();
-                newImg.onload = () => {
-                  logoImg.src = this._logoUrl;
-                };
-                newImg.onerror = (err) => {
-                  console.error("Failed to load logo:", err);
-                };
-                newImg.src = this._logoUrl;
+              if (logoImg && container.dcsHeaderLogo._logoUrl) {
+                logoImg.src = container.dcsHeaderLogo._logoUrl;
               }
 
-              // Force rerender using modern approach
-              const headerTitle = header.querySelector(".title");
-              if (headerTitle) {
-                headerTitle.style.visibility = "hidden";
-                requestAnimationFrame(() => {
-                  headerTitle.style.removeProperty("visibility");
-                });
+              // Force rerender
+              const headerComponent = header.querySelector(".title");
+              if (headerComponent) {
+                headerComponent.style.display = "none";
+                setTimeout(() => {
+                  headerComponent.style.display = "";
+                }, 10);
               }
-
-              // Notify observers
-              this._observers.forEach(cb => cb(this));
-            } catch (err) {
-              console.error("Error updating logo:", err);
             }
           };
 
-          // Schedule update
+          // Run update immediately and schedule for after render
+          updateLogoInDom();
           schedule("afterRender", updateLogoInDom);
         },
-        
-        // Add observer support
-        addObserver(callback) {
-          this._observers.add(callback);
-          return () => this._observers.delete(callback);
-        }
-      };
-
-      // Add to cleanup
-      cleanup = () => {
-        container.dcsHeaderLogo._observers.clear();
       };
 
       let lastUrl = "";
       let shrinkComposer = true;
-      let pageChangeHandlers = new Set();
-
       withPluginApi("1.2.0", (api) => {
-        // Modern route change handler with error boundary
+        // Use modern Discourse route change handler
+        // Try both old and new event names for compatibility
         const handlePageChange = (data) => {
-          try {
-            const currentRouteName = data?.currentRouteName || data?.routeName;
-            const url = data?.url || window.location.href;
+          const currentRouteName = data.currentRouteName || data.routeName;
+          const url = data.url || window.location.href;
 
-            if (!url || url === lastUrl) return;
+          if (url === lastUrl) return;
 
-            const queryParamsOnly = url.split("?")[0] === lastUrl.split("?")[0];
-            lastUrl = url;
-
-            onDidTransition({
-              container,
-              iframe: dcsIFrame,
-              routeName: currentRouteName,
-              queryParamsOnly,
-            });
-
-            if (shrinkComposer) {
-              const composer = container.lookup("controller:composer");
-              composer?.shrink?.();
-            }
-            shrinkComposer = true;
-          } catch (err) {
-            console.error("Error in page change handler:", err);
-          }
-        };
+          const queryParamsOnly = url.split("?")[0] === lastUrl.split("?")[0];
+          lastUrl = url;
 
           onDidTransition({
             container,
