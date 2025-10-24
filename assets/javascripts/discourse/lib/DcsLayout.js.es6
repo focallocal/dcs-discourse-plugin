@@ -4,13 +4,11 @@ import { schedule } from '@ember/runloop'
 export class DcsLayout {
   constructor(appCtrl) {
     this.appCtrl = appCtrl
-    this.saveMobileView = appCtrl?.site?.mobileView
+    this.saveMobileView = appCtrl.site.mobileView
     this.left = document.getElementById('dcs-left')
+    //this.right = document.getElementById('dcs-right')
     this.ghost = document.getElementById('dcs-ghost')
     this.prevLayout = null
-    this._boundSetWideClass = this._setWideClass.bind(this)
-    window.addEventListener('resize', this._boundSetWideClass)
-    this._setWideClass()
   }
 
   getShowRightQP() {
