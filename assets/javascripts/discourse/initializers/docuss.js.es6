@@ -1,8 +1,6 @@
-import { observer } from "@ember/object";
+// assets/javascripts/discourse/initializers/docuss.js.es6
 import { schedule } from "@ember/runloop";
-import ComposerController from "discourse/controllers/composer";
 import { withPluginApi } from "discourse/lib/plugin-api";
-import { setDefaultHomepage } from "discourse/lib/utilities";
 import Composer from "discourse/models/composer";
 
 import { DcsIFrame } from "../lib/DcsIFrame";
@@ -11,181 +9,162 @@ import { discourseAPI } from "../lib/discourseAPI";
 import { onAfterRender } from "../lib/onAfterRender";
 import { onDidTransition } from "../lib/onDidTransition";
 
+/*
+  Modernized Docuss initializer for Discourse 3.6 / Ember 5 and Plugin API 1.2.0
+  - Avoids model.set / model.get
+  - Uses api.onPageChange and api.onAppEvent
+  - Defers DOM updates to afterRender
+  - Defensive guards to avoid throwing and bringing down page handlers
+*/
+
 export default {
   name: "docuss",
   initialize(container, app) {
-    // If plugin is disabled, quit
-    if (!container.lookup("service:site-settings").docuss_enabled) {
-      return;
-    }
+    const siteSettings = container.lookup("service:site-settings");
+    if (!siteSettings?.docuss_enabled) return;
 
-    let dcsIFrame;
+    let dcsIFrame = null;
+    let lastUrl = "";
+    let shrinkComposer = true;
 
-    // Initialize plugin
-    const initializePlugin = () => {
-      setDefaultHomepage("docuss");
-      
-      // Create the IFrame instance
-      dcsIFrame = new DcsIFrame(app, container);
-      
-      // Wait until page is rendered, then modify stuff
-      afterRender().then(() => onAfterRender(container));
+    const safeScheduleAfterRender = (fn) => {
+      try { schedule("afterRender", fn); } catch (e) { console.warn("Docuss schedule failed", e); }
+    };
 
-      // Add the 'r' query param
-      container.lookup("controller:application").reopen({
-        queryParams: { showRight: "r" },
-        showRight: true,
-      });
+    withPluginApi("1.2.0", (api) => {
+      try { dcsIFrame = new DcsIFrame(app, container); } catch (e) { console.warn("Docuss DcsIFrame init failed", e); }
+
+      onAfterRender(container);
+
+      const setHeaderLogo = (logos) => {
+        safeScheduleAfterRender(() => {
+          try {
+            const header = document.querySelector(".d-header");
+            if (!header) return;
+            const logoLink = header.querySelector("#site-logo");
+            const logoImg = header.querySelector(".logo-big, .logo-small");
+            if (logoLink && logos?.href) logoLink.href = logos.href;
+            if (logoImg && logos?.logoUrl) logoImg.src = logos.logoUrl;
+            const headerTitle = header.querySelector(".title");
+            if (headerTitle) {
+              headerTitle.style.display = "none";
+              setTimeout(() => { headerTitle.style.display = ""; }, 10);
+            }
+          } catch (e) { console.warn("Docuss setHeaderLogo failed", e); }
+        });
+      };
 
       container.dcsHeaderLogo = {
-        _logoUrl: null,
-        _mobileLogoUrl: null,
-        _smallLogoUrl: null,
-        _href: null,
+        _logos: null,
         setLogo(logos) {
-          // Store new values
-          container.dcsHeaderLogo._logoUrl = logos?.logoUrl;
-          container.dcsHeaderLogo._mobileLogoUrl = logos?.mobileLogoUrl;
-          container.dcsHeaderLogo._smallLogoUrl = logos?.smallLogoUrl;
-          container.dcsHeaderLogo._href = logos?.href;
-
-          // Force header rerender using modern Discourse API
-          withPluginApi("0.8.30", (api) => {
-            api.modifyClass("component:site-header", {
-              pluginId: "docuss",
-              logoUrl() {
-                return container.dcsHeaderLogo._logoUrl || this._super();
-              },
-              mobileLogoUrl() {
-                return container.dcsHeaderLogo._mobileLogoUrl || this._super();
-              },
-              smallLogoUrl() {
-                return container.dcsHeaderLogo._smallLogoUrl || this._super();
-              },
-              href() {
-                return container.dcsHeaderLogo._href || this._super();
-              }
-            });
-
-            // Force a header refresh
-            const header = document.querySelector(".d-header");
-            if (header) {
-              const headerComponent = header.querySelector(".title");
-              if (headerComponent) {
-                headerComponent.style.display = "none";
-                setTimeout(() => {
-                  headerComponent.style.display = "";
-                }, 0);
-              }
-            }
-          });
+          container.dcsHeaderLogo._logos = logos;
+          setHeaderLogo(logos);
         },
       };
 
-      let lastUrl = "";
-      let shrinkComposer = true;
-      withPluginApi("0.8.30", (api) => {
-        // Page changed event
-        api.onAppEvent("page:changed", ({ currentRouteName, title, url }) => {
+      const handlePageChange = (data) => {
+        try {
+          const currentRouteName = data?.currentRouteName || data?.routeName || null;
+          const url = data?.url || (typeof data === "string" ? data : window.location.href);
+          if (!url) return;
           if (url === lastUrl) return;
 
-          const queryParamsOnly = url.split("?")[0] === lastUrl.split("?")[0];
+          const queryParamsOnly = lastUrl && (url.split("?")[0] === lastUrl.split("?")[0]);
           lastUrl = url;
 
-          onDidTransition({
-            container,
-            iframe: dcsIFrame,
-            routeName: currentRouteName,
-            queryParamsOnly,
-          });
-
-          if (shrinkComposer) {
-            container.lookup("controller:composer")?.shrink();
-          }
+          try { onDidTransition({ container, iframe: dcsIFrame, routeName: currentRouteName, queryParamsOnly }); } catch (e) {}
+          try {
+            const composerCtrl = api.container.lookup("controller:composer");
+            if (composerCtrl?.shrink && shrinkComposer) composerCtrl.shrink();
+          } catch (e) {}
           shrinkComposer = true;
+        } catch (e) { console.warn("Docuss handlePageChange exception", e); }
+      };
+
+      try { api.onAppEvent("page:changed", handlePageChange); } catch (e) {}
+      try { api.onPageChange(handlePageChange); } catch (e) { console.warn("Docuss api.onPageChange failed", e); }
+
+      safeScheduleAfterRender(() => {
+        try {
+          const iframeContainer = document.querySelector(".dcs-iframe-container");
+          if (iframeContainer) {
+            const iframe = iframeContainer.querySelector("iframe");
+            if (iframe) {
+              const originalUrl = iframe.src || "";
+              const proxyUrl = `/proxy?url=${encodeURIComponent(originalUrl)}`;
+              const newIframe = document.createElement("iframe");
+              newIframe.src = proxyUrl;
+              newIframe.setAttribute("sandbox", "allow-same-origin allow-scripts allow-popups allow-forms allow-presentation");
+              newIframe.setAttribute("allow", "fullscreen");
+              newIframe.style.width = "100%";
+              newIframe.style.height = "100%";
+              newIframe.style.border = "none";
+              newIframe.onerror = () => console.error("Docuss iframe load failed");
+              iframe.parentNode.replaceChild(newIframe, iframe);
+            }
+          }
+        } catch (e) { console.warn("Docuss iframe creation failed", e); }
+      });
+
+      api.onAppEvent("composer:opened", () => {
+        safeScheduleAfterRender(() => {
+          try {
+            const composerCtrl = api.container.lookup("controller:composer");
+            if (!composerCtrl) return;
+            const model = composerCtrl.model || composerCtrl.get?.("model");
+            if (!model) return;
+            if ((model.composeState ?? model.get?.("composeState")) !== Composer.OPEN) return;
+
+            const tags = model.tags || model.topic?.tags || [];
+            const dcsTag = tags.find((t) => DcsTag.parse?.(t));
+            if (dcsTag) {
+              if (model.topic) {
+                shrinkComposer = false;
+                try { api.container.lookup("service:router").transitionTo(`/t/${model.topic.slug}/${model.topic.id}?r=true`); } catch (e) {}
+              } else {
+                shrinkComposer = false;
+                const isCommentMode = tags.includes("dcs-comment");
+                const modeTag = isCommentMode ? "dcs-comment" : "dcs-discuss";
+                try { api.container.lookup("service:router").transitionTo(`/tags/intersection/${modeTag}/${dcsTag}?r=true`); } catch (e) {}
+              }
+            }
+
+            if (tags.includes("dcs-comment")) {
+              try { model.title = discourseAPI.commentTopicTitle(dcsTag); } catch (e) {}
+              safeScheduleAfterRender(() => {
+                const button = document.querySelector("#reply-control .save-or-cancel .d-button-label");
+                if (button) button.textContent = "Add Comment";
+              });
+            }
+
+            const categoryId = model.categoryId ?? model.get?.("categoryId");
+            const action = model.action ?? model.get?.("action");
+            if (!categoryId && action === Composer.CREATE_TOPIC) {
+              const appCtrl = api.container.lookup("controller:application");
+              const hiddenCategory = appCtrl?.site?.categories?.find((c) => c.name?.toLowerCase() === "hidden");
+              if (hiddenCategory) {
+                try { model.categoryId = hiddenCategory.id; } catch (e) {}
+              }
+            }
+          } catch (e) { console.warn("Docuss composer:opened handler failed", e); }
         });
       });
 
-      // Modify iframe creation to use proxy if needed
-      const iframeContainer = document.querySelector(".dcs-iframe-container");
-      if (iframeContainer) {
-        const iframe = iframeContainer.querySelector("iframe");
-        if (iframe) {
-          const originalUrl = iframe.src;
-          const proxyUrl = `/proxy?url=${encodeURIComponent(originalUrl)}`;
-          
-          // Create a new iframe with sandbox attributes
-          const newIframe = document.createElement('iframe');
-          newIframe.src = proxyUrl;
-          newIframe.setAttribute('sandbox', 'allow-same-origin allow-scripts allow-popups allow-forms allow-presentation');
-          newIframe.setAttribute('allow', 'fullscreen');
-          newIframe.style.width = '100%';
-          newIframe.style.height = '100%';
-          newIframe.style.border = 'none';
-          
-          // Add event listener for load errors
-          newIframe.onerror = () => {
-            console.error('Failed to load iframe content');
-          };
-          
-          // Replace the old iframe
-          iframe.parentNode.replaceChild(newIframe, iframe);
-        }
-      }
-
-      // Rest of initialization...
-      ComposerController.reopen({
-        composeStateChanged: observer("model.composeState", function() {
-          const state = this.get("model.composeState");
-          if (state !== Composer.OPEN) return;
-
-          const model = this.get("model");
-          const tags = model.tags || (model.topic && model.topic.tags);
-          const dcsTag = tags && tags.find((t) => DcsTag.parse(t));
-          if (!dcsTag) return;
-
-          let path;
-          const topic = model.topic;
-          if (topic) {
-            path = `/t/${topic.slug}/${topic.id}?r=true`;
-          } else {
-            const isCommentMode = tags.includes("dcs-comment");
-            const modeTag = isCommentMode ? "dcs-comment" : "dcs-discuss";
-            path = `/tags/intersection/${modeTag}/${dcsTag}?r=true`;
-          }
-          shrinkComposer = false;
-          container.lookup("service:router").transitionTo(path);
-        }),
-
-        tagsChanged: observer("model.tags", function() {
-          const model = this.get("model");
-          const tags = model?.tags;
-          const dcsTag = tags?.find((tag) => DcsTag.parse(tag));
-          if (!dcsTag) return;
-
-          const isCommentMode = tags.includes("dcs-comment");
-          if (isCommentMode) {
-            model.setProperties({
-              title: discourseAPI.commentTopicTitle(dcsTag),
-            });
-            
-            // Update composer button text
-            schedule("afterRender", () => {
-              $("#reply-control .save-or-cancel .d-button-label").text(
-                "Add Comment"
-              );
-            });
-          }
-        }),
+      safeScheduleAfterRender(() => {
+        try {
+          document.addEventListener("keydown", (ev) => {
+            if (ev.altKey && ev.key?.toLowerCase() === "a") {
+              try {
+                const categorySelect = document.querySelector(".category-chooser, .select-kit");
+                const tagBoxes = document.querySelectorAll(".tag-chooser, .tag-row, .tag-box");
+                if (categorySelect) categorySelect.style.display = (categorySelect.style.display === "none" || categorySelect.hidden) ? "" : "none";
+                if (tagBoxes.length) tagBoxes.forEach(tb => tb.style.display = (tb.style.display === "none" || tb.hidden) ? "" : "none");
+              } catch (e) { console.warn("Docuss Alt+A toggle failed", e); }
+            }
+          });
+        } catch (e) { console.warn("Docuss attachAltAToggle failed", e); }
       });
-    };
 
-    // Just initialize without trying to create tags
-    initializePlugin();
-  },
+    }); // end withPluginApi
+  }, // end initialize
 };
-
-const afterRender = (res) =>
-  new Promise((resolve) => {
-    schedule("afterRender", null, () => resolve(res));
-  });
