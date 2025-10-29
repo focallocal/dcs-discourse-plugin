@@ -1,3 +1,4 @@
+// assets/javascripts/discourse/initializers/docuss.js.es6
 import { schedule } from "@ember/runloop";
 import { withPluginApi } from "discourse/lib/plugin-api";
 import Composer from "discourse/models/composer";
@@ -10,47 +11,68 @@ import { onDidTransition } from "../lib/onDidTransition";
 
 export default {
   name: "docuss",
-  initialize() {
+  initialize(container) {
+    // Check if plugin is enabled via site-settings service
+    const siteSettings = container.lookup("service:site-settings");
+    if (!siteSettings?.docuss_enabled) {
+      return;
+    }
+
+    let dcsIFrame = null;
+    let lastUrl = "";
+    let shrinkComposer = true;
+
     withPluginApi("1.2.0", (api) => {
-      const container = api.container; // safe container for lookups
-      const appCtrl = container.lookup("controller:application");
+      // Initialize iframe - pass container only
+      try {
+        dcsIFrame = new DcsIFrame(container);
+      } catch (e) {
+        console.error("Failed to initialize DcsIFrame:", e);
+        return;
+      }
 
-      if (!appCtrl.site.docuss_enabled) return;
+      // Run after-render logic
+      schedule("afterRender", () => {
+        try {
+          onAfterRender(container);
+        } catch (e) {
+          console.error("onAfterRender failed:", e);
+        }
+      });
 
-      // -------------------------------
-      // Create IFrame safely
-      // -------------------------------
-      const dcsIFrame = new DcsIFrame(api.container);
-
-      // -------------------------------
-      // Logo management
-      // -------------------------------
+      // ========================================
+      // Header Logo Management
+      // ========================================
       container.dcsHeaderLogo = {
-        _logoUrl: null,
-        _mobileLogoUrl: null,
-        _smallLogoUrl: null,
-        _href: null,
+        _logos: null,
         setLogo(logos) {
-          this._logoUrl = logos?.logoUrl;
-          this._mobileLogoUrl = logos?.mobileLogoUrl;
-          this._smallLogoUrl = logos?.smallLogoUrl;
-          this._href = logos?.href;
-
+          this._logos = logos;
+          
           const updateLogo = () => {
-            const header = document.querySelector(".d-header");
-            if (!header) return;
+            try {
+              const header = document.querySelector(".d-header");
+              if (!header) return;
 
-            const logoLink = header.querySelector("#site-logo");
-            const logoImg = header.querySelector(".logo-big, .logo-small");
+              const logoLink = header.querySelector("#site-logo");
+              const logoImg = header.querySelector(".logo-big, .logo-small");
 
-            if (logoLink && this._href) logoLink.href = this._href;
-            if (logoImg && this._logoUrl) logoImg.src = this._logoUrl;
+              if (logoLink && logos?.href) {
+                logoLink.href = logos.href;
+              }
+              if (logoImg && logos?.logoUrl) {
+                logoImg.src = logos.logoUrl;
+              }
 
-            // Force rerender
-            const headerComponent = header.querySelector(".title");
-            if (headerComponent) {
-              headerComponent.style.display = "none";
-              setTimeout(() => (headerComponent.style.display = ""), 10);
+              // Force re-render of header title
+              const headerTitle = header.querySelector(".title");
+              if (headerTitle) {
+                headerTitle.style.display = "none";
+                setTimeout(() => {
+                  headerTitle.style.display = "";
+                }, 10);
+              }
+            } catch (e) {
+              console.warn("Failed to update header logo:", e);
             }
           };
 
@@ -59,92 +81,187 @@ export default {
         },
       };
 
-      // -------------------------------
-      // Page change handler
-      // -------------------------------
-      let lastUrl = "";
-      let shrinkComposer = true;
-
+      // ========================================
+      // Page Change Handler
+      // ========================================
       const handlePageChange = (data) => {
-        const currentRouteName = data.currentRouteName || data.routeName;
-        const url = data.url || window.location.href;
+        try {
+          // Extract route name - handle various formats
+          const currentRouteName = data?.currentRouteName || data?.routeName || null;
+          
+          // Extract URL
+          const url = data?.url || (typeof data === "string" ? data : window.location.href);
+          
+          if (!url || url === lastUrl) {
+            return;
+          }
 
-        if (url === lastUrl) return;
-        const queryParamsOnly = url.split("?")[0] === lastUrl.split("?")[0];
-        lastUrl = url;
+          const queryParamsOnly = lastUrl && (url.split("?")[0] === lastUrl.split("?")[0]);
+          lastUrl = url;
 
-        onDidTransition({
-          container,
-          iframe: dcsIFrame,
-          routeName: currentRouteName,
-          queryParamsOnly,
-        });
+          // Only call onDidTransition if we have a valid routeName
+          if (currentRouteName && dcsIFrame) {
+            try {
+              onDidTransition({
+                container,
+                iframe: dcsIFrame,
+                routeName: currentRouteName,
+                queryParamsOnly,
+              });
+            } catch (e) {
+              console.warn("onDidTransition failed:", e);
+            }
+          }
 
-        if (shrinkComposer) {
-          container.lookup("controller:composer")?.shrink();
+          // Shrink composer on page change
+          if (shrinkComposer) {
+            try {
+              const composerCtrl = container.lookup("controller:composer");
+              if (composerCtrl?.shrink) {
+                composerCtrl.shrink();
+              }
+            } catch (e) {
+              console.warn("Failed to shrink composer:", e);
+            }
+          }
+          shrinkComposer = true;
+        } catch (e) {
+          console.error("handlePageChange error:", e);
         }
-        shrinkComposer = true;
       };
 
+      // Register page change listeners
       api.onAppEvent("page:changed", handlePageChange);
       api.onPageChange(handlePageChange);
 
-      // -------------------------------
-      // Composer opened hooks
-      // -------------------------------
+      // ========================================
+      // Composer Opened Handler
+      // ========================================
       api.onAppEvent("composer:opened", () => {
         schedule("afterRender", () => {
-          const composerController = container.lookup("controller:composer");
-          if (!composerController) return;
+          try {
+            const composerCtrl = container.lookup("controller:composer");
+            if (!composerCtrl) return;
 
-          const model = composerController.model;
-          if (!model) return;
+            const model = composerCtrl.model;
+            if (!model) return;
 
-          // -------------------------------
-          // Auto-select "hidden" category
-          // -------------------------------
-          if (!model.categoryId && model.action === Composer.CREATE_TOPIC) {
-            const hiddenCategory = appCtrl.site.categories.find(
-              (c) => c.name.toLowerCase() === "hidden"
-            );
-            if (hiddenCategory) model.categoryId = hiddenCategory.id;
-          }
+            // Check if composer is actually open
+            const composeState = model.composeState || model.get?.("composeState");
+            if (composeState !== Composer.OPEN) return;
 
-          // -------------------------------
-          // Handle tags & DcsTag logic
-          // -------------------------------
-          const tags = model.tags || (model.topic && model.topic.tags);
-          const dcsTag = tags && tags.find((t) => DcsTag.parse(t));
-          if (!dcsTag) return;
+            // Get tags
+            const tags = model.tags || model.topic?.tags || [];
+            const dcsTag = tags.find((t) => DcsTag.parse?.(t));
 
-          let path;
-          if (model.topic) {
-            path = `/t/${model.topic.slug}/${model.topic.id}?r=true`;
-          } else {
-            const isCommentMode = tags.includes("dcs-comment");
-            const modeTag = isCommentMode ? "dcs-comment" : "dcs-discuss";
-            path = `/tags/intersection/${modeTag}/${dcsTag}?r=true`;
-          }
-          shrinkComposer = false;
-          container.lookup("service:router").transitionTo(path);
+            // ========================================
+            // Auto-select Hidden Category
+            // ========================================
+            const categoryId = model.categoryId || model.get?.("categoryId");
+            const action = model.action || model.get?.("action");
+            
+            if (!categoryId && action === Composer.CREATE_TOPIC) {
+              try {
+                const appCtrl = container.lookup("controller:application");
+                const hiddenCategory = appCtrl?.site?.categories?.find(
+                  (c) => c.name?.toLowerCase() === "hidden"
+                );
+                
+                if (hiddenCategory) {
+                  model.categoryId = hiddenCategory.id;
+                }
+              } catch (e) {
+                console.warn("Failed to set hidden category:", e);
+              }
+            }
 
-          // Update composer button for comment mode
-          if (tags.includes("dcs-comment")) {
-            model.title = discourseAPI.commentTopicTitle(dcsTag);
-            schedule("afterRender", () => {
-              const button = document.querySelector(
-                "#reply-control .save-or-cancel .d-button-label"
-              );
-              if (button) button.textContent = "Add Comment";
-            });
+            // ========================================
+            // Handle DcsTag Navigation
+            // ========================================
+            if (dcsTag) {
+              let path;
+              
+              if (model.topic) {
+                // Existing topic - go to topic page
+                path = `/t/${model.topic.slug}/${model.topic.id}?r=true`;
+              } else {
+                // New topic - go to tag intersection
+                const isCommentMode = tags.includes("dcs-comment");
+                const modeTag = isCommentMode ? "dcs-comment" : "dcs-discuss";
+                path = `/tags/intersection/${modeTag}/${dcsTag}?r=true`;
+              }
+
+              shrinkComposer = false;
+              
+              try {
+                const router = container.lookup("service:router");
+                if (router?.transitionTo) {
+                  router.transitionTo(path);
+                }
+              } catch (e) {
+                console.warn("Failed to navigate:", e);
+              }
+            }
+
+            // ========================================
+            // Comment Mode UI Updates
+            // ========================================
+            if (tags.includes("dcs-comment")) {
+              try {
+                if (dcsTag && discourseAPI?.commentTopicTitle) {
+                  model.title = discourseAPI.commentTopicTitle(dcsTag);
+                }
+              } catch (e) {
+                console.warn("Failed to set comment title:", e);
+              }
+
+              schedule("afterRender", () => {
+                try {
+                  const button = document.querySelector(
+                    "#reply-control .save-or-cancel .d-button-label"
+                  );
+                  if (button) {
+                    button.textContent = "Add Comment";
+                  }
+                } catch (e) {
+                  console.warn("Failed to update button text:", e);
+                }
+              });
+            }
+          } catch (e) {
+            console.error("composer:opened handler error:", e);
           }
         });
       });
 
-      // -------------------------------
-      // Run post-render logic
-      // -------------------------------
-      onAfterRender(container);
+      // ========================================
+      // Alt+A Toggle for Category/Tags
+      // ========================================
+      schedule("afterRender", () => {
+        try {
+          document.addEventListener("keydown", (ev) => {
+            if (ev.altKey && ev.key?.toLowerCase() === "a") {
+              try {
+                const categorySelect = document.querySelector(".category-chooser, .select-kit");
+                const tagBoxes = document.querySelectorAll(".tag-chooser, .tag-row, .tag-box");
+                
+                if (categorySelect) {
+                  categorySelect.style.display = 
+                    (categorySelect.style.display === "none") ? "" : "none";
+                }
+                
+                tagBoxes.forEach((tb) => {
+                  tb.style.display = (tb.style.display === "none") ? "" : "none";
+                });
+              } catch (e) {
+                console.warn("Alt+A toggle failed:", e);
+              }
+            }
+          });
+        } catch (e) {
+          console.error("Failed to attach Alt+A listener:", e);
+        }
+      });
     });
   },
 };
