@@ -1,6 +1,6 @@
+// assets/javascripts/discourse/initializers/docuss.js.es6
 import { schedule } from "@ember/runloop";
 import { withPluginApi } from "discourse/lib/plugin-api";
-import { setDefaultHomepage } from "discourse/lib/utilities";
 import Composer from "discourse/models/composer";
 
 import { DcsIFrame } from "../lib/DcsIFrame";
@@ -12,140 +12,256 @@ import { onDidTransition } from "../lib/onDidTransition";
 export default {
   name: "docuss",
   initialize(container) {
-    if (!container.lookup("service:site-settings")?.docuss_enabled) return;
+    // Check if plugin is enabled via site-settings service
+    const siteSettings = container.lookup("service:site-settings");
+    if (!siteSettings?.docuss_enabled) {
+      return;
+    }
 
-    let dcsIFrame;
+    let dcsIFrame = null;
+    let lastUrl = "";
+    let shrinkComposer = true;
 
-    const initializePlugin = () => {
-      setDefaultHomepage("docuss");
+    withPluginApi("1.2.0", (api) => {
+      // Initialize iframe - pass container only
+      try {
+        dcsIFrame = new DcsIFrame(container);
+      } catch (e) {
+        console.error("Failed to initialize DcsIFrame:", e);
+        return;
+      }
 
-      // Create iframe
-      dcsIFrame = new DcsIFrame(container);
-
-      // Wait for rendering
-      afterRender().then(() => onAfterRender(container));
-
-      // Add query param
-      container.lookup("controller:application")?.reopen({
-        queryParams: { showRight: "r" },
-        showRight: true,
+      // Run after-render logic
+      schedule("afterRender", () => {
+        try {
+          onAfterRender(container);
+        } catch (e) {
+          console.error("onAfterRender failed:", e);
+        }
       });
 
-      // Header logo update
+      // ========================================
+      // Header Logo Management
+      // ========================================
       container.dcsHeaderLogo = {
-        _logoUrl: null,
-        _mobileLogoUrl: null,
-        _smallLogoUrl: null,
-        _href: null,
+        _logos: null,
         setLogo(logos) {
-          container.dcsHeaderLogo._logoUrl = logos?.logoUrl;
-          container.dcsHeaderLogo._mobileLogoUrl = logos?.mobileLogoUrl;
-          container.dcsHeaderLogo._smallLogoUrl = logos?.smallLogoUrl;
-          container.dcsHeaderLogo._href = logos?.href;
+          this._logos = logos;
+          
+          const updateLogo = () => {
+            try {
+              const header = document.querySelector(".d-header");
+              if (!header) return;
 
-          const updateLogoInDom = () => {
-            const header = document.querySelector(".d-header");
-            if (!header) return;
+              const logoLink = header.querySelector("#site-logo");
+              const logoImg = header.querySelector(".logo-big, .logo-small");
 
-            const logoLink = header.querySelector("#site-logo");
-            const logoImg = header.querySelector(".logo-big, .logo-small");
+              if (logoLink && logos?.href) {
+                logoLink.href = logos.href;
+              }
+              if (logoImg && logos?.logoUrl) {
+                logoImg.src = logos.logoUrl;
+              }
 
-            if (logoLink && container.dcsHeaderLogo._href) logoLink.href = container.dcsHeaderLogo._href;
-            if (logoImg && container.dcsHeaderLogo._logoUrl) logoImg.src = container.dcsHeaderLogo._logoUrl;
-
-            const headerTitle = header.querySelector(".title");
-            if (headerTitle) {
-              headerTitle.style.display = "none";
-              setTimeout(() => (headerTitle.style.display = ""), 10);
+              // Force re-render of header title
+              const headerTitle = header.querySelector(".title");
+              if (headerTitle) {
+                headerTitle.style.display = "none";
+                setTimeout(() => {
+                  headerTitle.style.display = "";
+                }, 10);
+              }
+            } catch (e) {
+              console.warn("Failed to update header logo:", e);
             }
           };
 
-          updateLogoInDom();
-          schedule("afterRender", updateLogoInDom);
+          updateLogo();
+          schedule("afterRender", updateLogo);
         },
       };
 
-      let lastUrl = "";
-      let shrinkComposer = true;
-
-      withPluginApi("1.2.0", (api) => {
-        const handlePageChange = (data) => {
-          const currentRouteName = data?.currentRouteName || data?.routeName;
-          const url = data?.url || window.location.href;
-
-          if (url === lastUrl) return;
-          const queryParamsOnly = url.split("?")[0] === lastUrl.split("?")[0];
-          lastUrl = url;
-
-          // ✅ Guard routeName
-          if (currentRouteName) {
-            onDidTransition({
-              container,
-              iframe: dcsIFrame,
-              routeName: currentRouteName,
-              queryParamsOnly,
-            });
+      // ========================================
+      // Page Change Handler
+      // ========================================
+      const handlePageChange = (data) => {
+        try {
+          // Extract route name - handle various formats
+          const currentRouteName = data?.currentRouteName || data?.routeName || null;
+          
+          // Extract URL
+          const url = data?.url || (typeof data === "string" ? data : window.location.href);
+          
+          if (!url || url === lastUrl) {
+            return;
           }
 
-          container.lookup("controller:composer")?.shrink?.();
+          const queryParamsOnly = lastUrl && (url.split("?")[0] === lastUrl.split("?")[0]);
+          lastUrl = url;
+
+          // Only call onDidTransition if we have a valid routeName
+          if (currentRouteName && dcsIFrame) {
+            try {
+              onDidTransition({
+                container,
+                iframe: dcsIFrame,
+                routeName: currentRouteName,
+                queryParamsOnly,
+              });
+            } catch (e) {
+              console.warn("onDidTransition failed:", e);
+            }
+          }
+
+          // Shrink composer on page change
+          if (shrinkComposer) {
+            try {
+              const composerCtrl = container.lookup("controller:composer");
+              if (composerCtrl?.shrink) {
+                composerCtrl.shrink();
+              }
+            } catch (e) {
+              console.warn("Failed to shrink composer:", e);
+            }
+          }
           shrinkComposer = true;
-        };
+        } catch (e) {
+          console.error("handlePageChange error:", e);
+        }
+      };
 
-        api.onAppEvent("page:changed", handlePageChange);
-        api.onPageChange(handlePageChange);
+      // Register page change listeners
+      api.onAppEvent("page:changed", handlePageChange);
+      api.onPageChange(handlePageChange);
 
-        // Composer opened events
-        api.onAppEvent("composer:opened", () => {
-          schedule("afterRender", () => {
-            const composerController = container.lookup("controller:composer");
-            if (!composerController) return;
+      // ========================================
+      // Composer Opened Handler
+      // ========================================
+      api.onAppEvent("composer:opened", () => {
+        schedule("afterRender", () => {
+          try {
+            const composerCtrl = container.lookup("controller:composer");
+            if (!composerCtrl) return;
 
-            const model = composerController.get?.("model");
+            const model = composerCtrl.model;
             if (!model) return;
 
-            const state = model.get?.("composeState");
-            if (state !== Composer.OPEN) return;
+            // Check if composer is actually open
+            const composeState = model.composeState || model.get?.("composeState");
+            if (composeState !== Composer.OPEN) return;
 
-            // Hidden tags / default category
-            const tags = model.tags || (model.topic && model.topic.tags);
-            const dcsTag = tags?.find((t) => DcsTag.parse(t));
+            // Get tags
+            const tags = model.tags || model.topic?.tags || [];
+            const dcsTag = tags.find((t) => DcsTag.parse?.(t));
 
-            if (!dcsTag) return;
-
-            // Default category
-            const categoryId = model.get?.("categoryId");
-            const action = model.get?.("action");
-
+            // ========================================
+            // Auto-select Hidden Category
+            // ========================================
+            const categoryId = model.categoryId || model.get?.("categoryId");
+            const action = model.action || model.get?.("action");
+            
             if (!categoryId && action === Composer.CREATE_TOPIC) {
-              const hiddenCategory = container.lookup("controller:application")?.site?.categories?.find(
-                (c) => c.name.toLowerCase() === "hidden"
-              );
-              if (hiddenCategory) model.set?.("categoryId", hiddenCategory.id);
+              try {
+                const appCtrl = container.lookup("controller:application");
+                const hiddenCategory = appCtrl?.site?.categories?.find(
+                  (c) => c.name?.toLowerCase() === "hidden"
+                );
+                
+                if (hiddenCategory) {
+                  model.categoryId = hiddenCategory.id;
+                }
+              } catch (e) {
+                console.warn("Failed to set hidden category:", e);
+              }
             }
 
-            // Compute path for iframe
-            let path;
-            const topic = model.topic;
-            if (topic) {
-              path = `/t/${topic.slug}/${topic.id}?r=true`;
-            } else {
-              const isCommentMode = tags.includes("dcs-comment");
-              const modeTag = isCommentMode ? "dcs-comment" : "dcs-discuss";
-              path = `/tags/intersection/${modeTag}/${dcsTag}?r=true`;
+            // ========================================
+            // Handle DcsTag Navigation
+            // ========================================
+            if (dcsTag) {
+              let path;
+              
+              if (model.topic) {
+                // Existing topic - go to topic page
+                path = `/t/${model.topic.slug}/${model.topic.id}?r=true`;
+              } else {
+                // New topic - go to tag intersection
+                const isCommentMode = tags.includes("dcs-comment");
+                const modeTag = isCommentMode ? "dcs-comment" : "dcs-discuss";
+                path = `/tags/intersection/${modeTag}/${dcsTag}?r=true`;
+              }
+
+              shrinkComposer = false;
+              
+              try {
+                const router = container.lookup("service:router");
+                if (router?.transitionTo) {
+                  router.transitionTo(path);
+                }
+              } catch (e) {
+                console.warn("Failed to navigate:", e);
+              }
             }
 
-            shrinkComposer = false;
-            container.lookup("service:router")?.transitionTo?.(path);
-          });
+            // ========================================
+            // Comment Mode UI Updates
+            // ========================================
+            if (tags.includes("dcs-comment")) {
+              try {
+                if (dcsTag && discourseAPI?.commentTopicTitle) {
+                  model.title = discourseAPI.commentTopicTitle(dcsTag);
+                }
+              } catch (e) {
+                console.warn("Failed to set comment title:", e);
+              }
+
+              schedule("afterRender", () => {
+                try {
+                  const button = document.querySelector(
+                    "#reply-control .save-or-cancel .d-button-label"
+                  );
+                  if (button) {
+                    button.textContent = "Add Comment";
+                  }
+                } catch (e) {
+                  console.warn("Failed to update button text:", e);
+                }
+              });
+            }
+          } catch (e) {
+            console.error("composer:opened handler error:", e);
+          }
         });
       });
-    };
 
-    initializePlugin();
+      // ========================================
+      // Alt+A Toggle for Category/Tags
+      // ========================================
+      schedule("afterRender", () => {
+        try {
+          document.addEventListener("keydown", (ev) => {
+            if (ev.altKey && ev.key?.toLowerCase() === "a") {
+              try {
+                const categorySelect = document.querySelector(".category-chooser, .select-kit");
+                const tagBoxes = document.querySelectorAll(".tag-chooser, .tag-row, .tag-box");
+                
+                if (categorySelect) {
+                  categorySelect.style.display = 
+                    (categorySelect.style.display === "none") ? "" : "none";
+                }
+                
+                tagBoxes.forEach((tb) => {
+                  tb.style.display = (tb.style.display === "none") ? "" : "none";
+                });
+              } catch (e) {
+                console.warn("Alt+A toggle failed:", e);
+              }
+            }
+          });
+        } catch (e) {
+          console.error("Failed to attach Alt+A listener:", e);
+        }
+      });
+    });
   },
 };
-
-const afterRender = (res) =>
-  new Promise((resolve) => {
-    schedule("afterRender", null, () => resolve(res));
-  });
