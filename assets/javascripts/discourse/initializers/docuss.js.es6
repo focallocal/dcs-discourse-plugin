@@ -1,6 +1,7 @@
 // assets/javascripts/discourse/initializers/docuss.js.es6
 import { schedule } from "@ember/runloop";
 import { withPluginApi } from "discourse/lib/plugin-api";
+import { setDefaultHomepage } from "discourse/lib/utilities";
 import Composer from "discourse/models/composer";
 
 import { DcsIFrame } from "../lib/DcsIFrame";
@@ -18,12 +19,15 @@ export default {
       return;
     }
 
+    // Set default homepage
+    setDefaultHomepage("docuss");
+
     let dcsIFrame = null;
     let lastUrl = "";
     let shrinkComposer = true;
 
     withPluginApi("1.2.0", (api) => {
-      // Initialize iframe - pass BOTH app and container (even though app is unused)
+      // Initialize iframe - pass BOTH app and container
       try {
         dcsIFrame = new DcsIFrame(app, container);
       } catch (e) {
@@ -31,7 +35,7 @@ export default {
         return;
       }
 
-      // Run after-render logic
+      // Run after-render logic - this creates container.dcsLayout
       schedule("afterRender", () => {
         try {
           onAfterRender(container);
@@ -39,6 +43,19 @@ export default {
           console.error("onAfterRender failed:", e);
         }
       });
+
+      // Add the 'r' query param for showing right panel
+      try {
+        const appController = container.lookup("controller:application");
+        if (appController) {
+          appController.reopen({
+            queryParams: { showRight: "r" },
+            showRight: true,
+          });
+        }
+      } catch (e) {
+        console.warn("Failed to add showRight query param:", e);
+      }
 
       // ========================================
       // Header Logo Management
@@ -99,8 +116,8 @@ export default {
           const queryParamsOnly = lastUrl && (url.split("?")[0] === lastUrl.split("?")[0]);
           lastUrl = url;
 
-          // Only call onDidTransition if we have a valid routeName
-          if (currentRouteName && dcsIFrame) {
+          // Only call onDidTransition if we have routeName, dcsIFrame AND dcsLayout is ready
+          if (currentRouteName && dcsIFrame && container.dcsLayout) {
             try {
               onDidTransition({
                 container,
@@ -113,15 +130,16 @@ export default {
             }
           }
 
-          // Shrink composer on page change
+          // Shrink composer on page change - with better error handling
           if (shrinkComposer) {
             try {
               const composerCtrl = container.lookup("controller:composer");
-              if (composerCtrl?.shrink) {
+              // Check if composer exists AND has a model before trying to shrink
+              if (composerCtrl?.model && composerCtrl?.shrink) {
                 composerCtrl.shrink();
               }
             } catch (e) {
-              console.warn("Failed to shrink composer:", e);
+              // Don't log this error - it's expected when composer doesn't exist
             }
           }
           shrinkComposer = true;
@@ -235,7 +253,7 @@ export default {
       });
 
       // ========================================
-      // Alt+A Toggle for Category/Tags
+      // Alt+A Toggle for Category/Tags (Admin only)
       // ========================================
       schedule("afterRender", () => {
         try {
