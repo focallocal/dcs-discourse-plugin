@@ -40,8 +40,8 @@ export class DcsIFrame {
     */
 
 		// Check Discourse settings
-		const jsonUrlsStr = container.lookup('site-settings:main')['docuss_website_json_file']
-		if (!jsonUrlsStr) {
+		const siteSettings = container.lookup('service:site-settings')
+		const jsonUrlsStr = siteSettings.docuss_website_json_file		if (!jsonUrlsStr) {
 			this._displayError(
 				'Error in Discourse settings',
 				'At least one "docuss website json file" must be set'
@@ -60,7 +60,7 @@ export class DcsIFrame {
 			this.readyPromise = Promise.reject('Docuss error, see the home page')
 			return
 		}
-		if (!container.lookup('site-settings:main')['tagging_enabled']) {
+		if (!siteSettings.tagging_enabled) {
 			this._displayError(
 				'Error in Discourse settings',
 				'"tagging enabled" must be set to true'
@@ -68,7 +68,7 @@ export class DcsIFrame {
 			this.readyPromise = Promise.reject('Docuss error, see the home page')
 			return
 		}
-		const proxyUrl = container.lookup('site-settings:main')['docuss_proxy_url']
+		const proxyUrl = siteSettings.docuss_proxy_url
 		if (proxyUrl) {
 			try {
 				this.parsedProxyUrl = new URL(proxyUrl)
@@ -107,7 +107,7 @@ export class DcsIFrame {
 
 				// Check tag max length against Discourse settings
 				const maxTagLength1 = DcsTag.maxTagLength()
-				const maxTagLength2 = container.lookup('site-settings:main')['max_tag_length']
+				const maxTagLength2 = siteSettings.max_tag_length
 				if (maxTagLength1 > maxTagLength2) {
 					throw `dcsTag=${JSON.stringify(
 						DcsTag.getSettings()
@@ -116,7 +116,7 @@ export class DcsIFrame {
 
 				// Check tag case against Discourse settings
 				const forceLowercase1 = DcsTag.getSettings().forceLowercase
-				const forceLowercase2 = container.lookup('site-settings:main')['force_lowercase_tags']
+				const forceLowercase2 = siteSettings.force_lowercase_tags
 				if (forceLowercase1 !== forceLowercase2) {
 					throw `dcsTag.forceLowercase=${forceLowercase1} doesn't match Discourse setting "force lowercase tags"=${forceLowercase2}`
 				}
@@ -466,8 +466,7 @@ export class DcsIFrame {
 
 	_goToPathFromClient({ path, hash, mode, clientContext }) {
 		// Get the router
-		const router = this.container.lookup('router:main')
-
+		const router = this.container.lookup('service:router')
 		// Change the route (it will do nothing if the path is the same)
 		const transition =
 			mode === 'PUSH' ? router.transitionTo(path) : router.replaceWith(path)
@@ -638,7 +637,7 @@ export class DcsIFrame {
 			// has been rendered before we can transform it. Also, beware that the
 			// route can change while we are waiting! (we don't want to transform the
 			// title of another topic)
-			const router = this.container.lookup('router:main')
+			const router = this.container.lookup('service:router')
 			const hasTitle = () => {
 				if (!router['currentPath'].startsWith('topic.')) {
 					throw 'bad route'
