@@ -3,7 +3,8 @@ import { u } from './utils'
 export class DcsLayout {
   constructor(appCtrl) {
     this.appCtrl = appCtrl
-    this.saveMobileView = appCtrl.site.mobileView
+    // Delay mobileView check to avoid deprecation warning
+    this.saveMobileView = null;
     this.left = document.getElementById('dcs-left')
     //this.right = document.getElementById('dcs-right')
     this.ghost = document.getElementById('dcs-ghost')
@@ -183,6 +184,10 @@ export class DcsLayout {
     // https://github.com/discourse/discourse/blob/502b1316d04c2b228b0974f40ac263fe4df2ae0a/app/assets/javascripts/discourse/components/topic-navigation.js.es6#L19
     // This code fails because it performs a computation based on the window
     // width instead of #main-outlet width.
+    // Check mobileView at runtime instead of during initialization
+    if (this.saveMobileView === null) {
+    this.saveMobileView = this.appCtrl.site.mobileView || false;
+  }
     const forceMobileView = this.saveMobileView || layout === 2 || layout === 3
     this.appCtrl.site.set('mobileView', forceMobileView)
 

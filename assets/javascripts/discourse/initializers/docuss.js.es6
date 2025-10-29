@@ -39,6 +39,22 @@ export default {
       schedule("afterRender", () => {
         try {
           onAfterRender(container);
+          
+          // Trigger initial transition after layout is ready
+          const router = container.lookup("service:router");
+          const currentRouteName = router?.currentRouteName;
+          if (currentRouteName && dcsIFrame) {
+            try {
+              onDidTransition({
+                container,
+                iframe: dcsIFrame,
+                routeName: currentRouteName,
+                queryParamsOnly: false,
+              });
+            } catch (e) {
+              console.warn("Initial onDidTransition failed:", e);
+            }
+          }
         } catch (e) {
           console.error("onAfterRender failed:", e);
         }
