@@ -41,7 +41,8 @@ export class DcsIFrame {
 
 		// Check Discourse settings
 		const siteSettings = container.lookup('service:site-settings')
-		const jsonUrlsStr = siteSettings.docuss_website_json_file		if (!jsonUrlsStr) {
+		const jsonUrlsStr = siteSettings.docuss_website_json_file;
+		if (!jsonUrlsStr) {
 			this._displayError(
 				'Error in Discourse settings',
 				'At least one "docuss website json file" must be set'
