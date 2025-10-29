@@ -11,7 +11,7 @@ import { onDidTransition } from "../lib/onDidTransition";
 
 export default {
   name: "docuss",
-  initialize(container) {
+  initialize(container, app) {
     // Check if plugin is enabled via site-settings service
     const siteSettings = container.lookup("service:site-settings");
     if (!siteSettings?.docuss_enabled) {
@@ -23,9 +23,9 @@ export default {
     let shrinkComposer = true;
 
     withPluginApi("1.2.0", (api) => {
-      // Initialize iframe - pass container only
+      // Initialize iframe - pass BOTH app and container (even though app is unused)
       try {
-        dcsIFrame = new DcsIFrame(container);
+        dcsIFrame = new DcsIFrame(app, container);
       } catch (e) {
         console.error("Failed to initialize DcsIFrame:", e);
         return;
