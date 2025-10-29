@@ -78,7 +78,7 @@ export function onAfterRender(container) {
   container.dcsLayout = new DcsLayout(appCtrl)
 
   // Set the click handler for the split bar
-  const router = container.lookup('router:main')
+  const router = container.lookup('service:router')
   $('#dcs-splitbar').click(() => {
     const showRight = !container.dcsLayout.getShowRightQP()
     router.transitionTo({ queryParams: { ['showRight']: showRight } })
