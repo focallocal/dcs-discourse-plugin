@@ -684,7 +684,6 @@ export class DcsIFrame {
 							titleEl.innerHTML =
 								`<span class="dcs-title-prefix">${safeTitle} | </span>${originalTitle}`
 						}
-					}
 					},
 					e => {
 						if (e === 'bad route') {
