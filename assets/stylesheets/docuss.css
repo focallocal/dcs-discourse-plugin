@@ -108,7 +108,7 @@ html.dcs2[dcs-layout='3']:not(.dcs-wide) #dcs-left {
 
 html.dcs2 #dcs-splitbar {
   flex: 0 0 23px;
-  background-color: #2596be;
+  background-color: #08ea79;
   flex-direction: column;
   cursor: pointer;
   display: none;
@@ -165,7 +165,7 @@ html.dcs2 #dcs-ghost .dcs-ghost-splitbar {
   left: 0;
   bottom: 0;
   width: 23px;
-  background-color: #2596be;
+  background-color: #08ea79;
 }
 
 /*******************************************************************************
@@ -218,6 +218,16 @@ html.dcs2.dcs-debug .tag-box {
   display: block;
 }
 
+/* Hide tags input in composer */
+html.dcs2 div.tags-input {
+  display: none;
+}
+
+/* Show tags input when in debug mode */
+html.dcs2.dcs-debug div.tags-input {
+  display: block;
+}
+
 /*******************************************************************************
 	Hide categories (setting option)
 
@@ -255,6 +265,11 @@ html.dcs2.dcs-disable-cats
 
 /* Hide category cells in topic list */
 html.dcs2.dcs-disable-cats td.category {
+  display: none;
+}
+
+/* Hide category badge wrapper in list views */
+html.dcs2.dcs-disable-cats a.badge-category_wrapper {
   display: none;
 }
 
