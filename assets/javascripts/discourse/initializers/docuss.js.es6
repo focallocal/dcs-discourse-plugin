@@ -39,10 +39,13 @@ export default {
       schedule("afterRender", () => {
         try {
           onAfterRender(container);
+          console.log("✓ onAfterRender completed, dcsLayout ready");
           
           // Trigger initial transition after layout is ready
           const router = container.lookup("service:router");
           const currentRouteName = router?.currentRouteName;
+          console.log("Initial route:", currentRouteName);
+          
           if (currentRouteName && dcsIFrame) {
             try {
               onDidTransition({
@@ -125,6 +128,8 @@ export default {
           // Extract URL
           const url = data?.url || (typeof data === "string" ? data : window.location.href);
           
+          console.log("handlePageChange:", { currentRouteName, lastUrl, newUrl: url, hasLayout: !!container.dcsLayout });
+          
           if (!url || url === lastUrl) {
             return;
           }
@@ -135,6 +140,7 @@ export default {
           // Only call onDidTransition if we have routeName, dcsIFrame AND dcsLayout is ready
           if (currentRouteName && dcsIFrame && container.dcsLayout) {
             try {
+              console.log("→ Calling onDidTransition for route:", currentRouteName);
               onDidTransition({
                 container,
                 iframe: dcsIFrame,
@@ -144,6 +150,12 @@ export default {
             } catch (e) {
               console.warn("onDidTransition failed:", e);
             }
+          } else {
+            console.log("⚠ Skipping onDidTransition:", {
+              hasRoute: !!currentRouteName,
+              hasIFrame: !!dcsIFrame,
+              hasLayout: !!container.dcsLayout,
+            });
           }
 
           // Shrink composer on page change - with better error handling
@@ -166,7 +178,38 @@ export default {
 
       // Register page change listeners
       api.onAppEvent("page:changed", handlePageChange);
-      api.onPageChange(handlePageChange);
+      
+      // Also register for navigation-related events
+      api.onAppEvent("page:update", handlePageChange);
+      api.onAppEvent("composer:created", handlePageChange);
+      api.onAppEvent("composer:closed", handlePageChange);
+      
+      // Hook into router for route change detection
+      const router = container.lookup("service:router");
+      if (router && typeof router.on === 'function') {
+        // For Ember 3+, use the newer router API
+        try {
+          router.on("routeDidChange", () => {
+            handlePageChange({
+              currentRouteName: router.currentRouteName,
+              url: window.location.href,
+            });
+          });
+          console.log("✓ Registered routeDidChange listener");
+        } catch (e) {
+          console.warn("Could not register routeDidChange listener:", e);
+        }
+      }
+      
+      // Fallback: api.onPageChange for older Ember versions
+      if (typeof api.onPageChange === 'function') {
+        try {
+          api.onPageChange(handlePageChange);
+          console.log("✓ Registered onPageChange listener");
+        } catch (e) {
+          console.warn("Could not register onPageChange listener:", e);
+        }
+      }
 
       // ========================================
       // Composer Opened Handler
