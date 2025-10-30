@@ -128,9 +128,23 @@ export default {
           // Extract URL
           const url = data?.url || (typeof data === "string" ? data : window.location.href);
           
-          console.log("handlePageChange:", { currentRouteName, lastUrl, newUrl: url, hasLayout: !!container.dcsLayout });
+          console.log("handlePageChange called:", { 
+            currentRouteName, 
+            lastUrl, 
+            newUrl: url, 
+            urlChanged: url !== lastUrl,
+            hasLayout: !!container.dcsLayout,
+            hasDcsIFrame: !!dcsIFrame,
+            hasDcsLayout: !!container.dcsLayout
+          });
           
-          if (!url || url === lastUrl) {
+          if (!url) {
+            console.log("⚠ No URL provided, returning");
+            return;
+          }
+          
+          if (url === lastUrl) {
+            console.log("⚠ URL unchanged, returning");
             return;
           }
 
@@ -140,7 +154,7 @@ export default {
           // Only call onDidTransition if we have routeName, dcsIFrame AND dcsLayout is ready
           if (currentRouteName && dcsIFrame && container.dcsLayout) {
             try {
-              console.log("→ Calling onDidTransition for route:", currentRouteName);
+              console.log("✓ All conditions met, calling onDidTransition for route:", currentRouteName);
               onDidTransition({
                 container,
                 iframe: dcsIFrame,
@@ -151,7 +165,7 @@ export default {
               console.warn("onDidTransition failed:", e);
             }
           } else {
-            console.log("⚠ Skipping onDidTransition:", {
+            console.log("⚠ Skipping onDidTransition - missing conditions:", {
               hasRoute: !!currentRouteName,
               hasIFrame: !!dcsIFrame,
               hasLayout: !!container.dcsLayout,
@@ -190,6 +204,7 @@ export default {
         // For Ember 3+, use the newer router API
         try {
           router.on("routeDidChange", () => {
+            console.log("🔄 routeDidChange event fired, currentRoute:", router.currentRouteName);
             handlePageChange({
               currentRouteName: router.currentRouteName,
               url: window.location.href,
