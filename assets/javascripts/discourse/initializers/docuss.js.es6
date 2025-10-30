@@ -193,9 +193,13 @@ export default {
           if (shrinkComposer) {
             try {
               const composerCtrl = container.lookup("controller:composer");
-              // Check if composer exists AND has a model before trying to shrink
+              // Check if composer exists AND has a model AND is actually OPEN before trying to shrink
               if (composerCtrl?.model && composerCtrl?.shrink) {
-                composerCtrl.shrink();
+                const composeState = composerCtrl.model.composeState || composerCtrl.model.get?.("composeState");
+                // Only shrink if composer is not open or is already minimized
+                if (composeState !== Composer.OPEN) {
+                  composerCtrl.shrink();
+                }
               }
             } catch (e) {
               // Don't log this error - it's expected when composer doesn't exist
