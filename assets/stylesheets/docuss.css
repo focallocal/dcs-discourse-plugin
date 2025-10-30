@@ -173,26 +173,49 @@ html.dcs2 #dcs-ghost .dcs-ghost-splitbar {
 *******************************************************************************/
 
 /* Hide all dcs tags in tag filter dropdown */
-html.dcs2:not(.dcs-debug) li[data-name^='dcs-'] {
+html.dcs2 li[data-name^='dcs-'] {
   display: none;
+}
+
+/* Show dcs tags when in debug mode */
+html.dcs2.dcs-debug li[data-name^='dcs-'] {
+  display: block;
 }
 
 /* Hide all dcs tags in tag chooser */
-html.dcs2:not(.dcs-debug) .mini-tag-chooser > div[data-name^='dcs-'] > span,
-html.dcs2:not(.dcs-debug) .mini-tag-chooser .selected-tag[data-value^='dcs-'] {
+html.dcs2 .mini-tag-chooser > div[data-name^='dcs-'] > span,
+html.dcs2 .mini-tag-chooser .selected-tag[data-value^='dcs-'] {
   display: none;
+}
+
+/* Show dcs tags in tag chooser when in debug mode */
+html.dcs2.dcs-debug .mini-tag-chooser > div[data-name^='dcs-'] > span,
+html.dcs2.dcs-debug .mini-tag-chooser .selected-tag[data-value^='dcs-'] {
+  display: inline;
 }
 
 /* Hide all dcs tags everywhere else */
-html.dcs2:not(.dcs-debug) a.discourse-tag[data-tag-name^='dcs-'] {
+html.dcs2 a.discourse-tag[data-tag-name^='dcs-'] {
   display: none;
 }
 
+/* Show dcs tags everywhere else when in debug mode */
+html.dcs2.dcs-debug a.discourse-tag[data-tag-name^='dcs-'] {
+  display: inline-block;
+}
+
 /* Hide all regular tags in topic list and pages */
-html.dcs2:not(.dcs-debug) .topic-tags,
-html.dcs2:not(.dcs-debug) .tags-container,
-html.dcs2:not(.dcs-debug) .tag-box {
+html.dcs2 .topic-tags,
+html.dcs2 .tags-container,
+html.dcs2 .tag-box {
   display: none;
+}
+
+/* Show all regular tags when in debug mode */
+html.dcs2.dcs-debug .topic-tags,
+html.dcs2.dcs-debug .tags-container,
+html.dcs2.dcs-debug .tag-box {
+  display: block;
 }
 
 /*******************************************************************************
@@ -206,7 +229,7 @@ html.dcs2:not(.dcs-debug) .tag-box {
 Don't use visibility:hidden here, or it will  hide borders also. In admin mode,
 where there are categories (Staff, Lounge), this would create a hole in 
 the table's header */
-html.dcs2:not(.dcs-debug).dcs-disable-cats th.category {
+html.dcs2.dcs-disable-cats th.category {
   /* The following line is better than opacity:0, because it reduces the column
 	width. Beware: the !important is important for the tag topic list */
   font-size: 0pt !important;
@@ -214,24 +237,24 @@ html.dcs2:not(.dcs-debug).dcs-disable-cats th.category {
   cursor: default;
 }
 
-html.dcs2:not(.dcs-debug).dcs-disable-cats a.badge-category,
-html.dcs2:not(.dcs-debug).dcs-disable-cats ul.category-links,
-html.dcs2:not(.dcs-debug).dcs-disable-cats ul.category-links + hr,
-html.dcs2:not(.dcs-debug).dcs-disable-cats div.category-input,
-html.dcs2:not(.dcs-debug).dcs-disable-cats body:not(.admin-interface) div.category-chooser,
-html.dcs2:not(.dcs-debug).dcs-disable-cats ul#category-filter li:last-of-type,
-html.dcs2:not(.dcs-debug).dcs-disable-cats
+html.dcs2.dcs-disable-cats a.badge-category,
+html.dcs2.dcs-disable-cats ul.category-links,
+html.dcs2.dcs-disable-cats ul.category-links + hr,
+html.dcs2.dcs-disable-cats div.category-input,
+html.dcs2.dcs-disable-cats body:not(.admin-interface) div.category-chooser,
+html.dcs2.dcs-disable-cats ul#category-filter li:last-of-type,
+html.dcs2.dcs-disable-cats
   .navigation-container
   .category-breadcrumb
   > li:first-child,
-html.dcs2:not(.dcs-debug).dcs-disable-cats
+html.dcs2.dcs-disable-cats
   .navigation-container
   li[title='all topics grouped by category'] {
   display: none !important;
 }
 
 /* Hide category cells in topic list */
-html.dcs2:not(.dcs-debug).dcs-disable-cats td.category {
+html.dcs2.dcs-disable-cats td.category {
   display: none;
 }
 
@@ -239,7 +262,7 @@ html.dcs2:not(.dcs-debug).dcs-disable-cats td.category {
 example, "There are no more unread topics. Browse all categories or view latest 
 topics" will be turned into
 */
-html.dcs2:not(.dcs-debug).dcs-disable-cats
+html.dcs2.dcs-disable-cats
   footer.topic-list-bottom
   a[href='/categories'] {
   display: none;
@@ -249,7 +272,7 @@ html.dcs2:not(.dcs-debug).dcs-disable-cats
 required, cause the fact that we disabled categories and tags had removed
 input fields and now the text preview is too much toward the top
 */
-html.dcs2:not(.dcs-debug).dcs-disable-cats .d-editor-preview-wrapper {
+html.dcs2.dcs-disable-cats .d-editor-preview-wrapper {
   margin-top: 0px !important;
 }
 
