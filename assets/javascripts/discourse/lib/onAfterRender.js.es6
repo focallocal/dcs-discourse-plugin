@@ -3,46 +3,57 @@ import { DcsLayout } from './DcsLayout'
 import User from 'discourse/models/user'
 
 //------------------------------------------------------------------------------
-
 export function onAfterRender(container) {
   const appCtrl = container.lookup('controller:application')
-
+  
   // Add classes to the <html> tag
-  let classes = 'dcs2'
-  //classes += userIsAdmin ? ' dcs-admin' : ' dcs-not-admin'
+  let classes = ['dcs2']
+  
   if (appCtrl.siteSettings['docuss_hide_sugg_topics']) {
-    classes += ' dcs-disable-sugg'
+    classes.push('dcs-disable-sugg')
   }
   if (appCtrl.siteSettings['docuss_hide_categories']) {
-    classes += ' dcs-disable-cats'
+    classes.push('dcs-disable-cats')
   }
   if (appCtrl.siteSettings['docuss_hide_hamburger_menu']) {
-    classes += ' dcs-no-ham-menu'
+    classes.push('dcs-no-ham-menu')
   }
   if (appCtrl.siteSettings['docuss_hide_tags']) {
-    classes += ' dcs-hide-tags'
+    classes.push('dcs-hide-tags')
   }
-
-  $('html').addClass(classes)
-
-  $('body').prepend(`
-    <div id="dcs-ghost">
-      <div class="dcs-ghost-splitbar"></div>
+  
+  // Add classes to HTML element
+  document.documentElement.classList.add(...classes)
+  
+  // Create and prepend elements to body
+  const ghostDiv = document.createElement('div')
+  ghostDiv.id = 'dcs-ghost'
+  ghostDiv.innerHTML = '<div class="dcs-ghost-splitbar"></div>'
+  
+  const containerDiv = document.createElement('div')
+  containerDiv.id = 'dcs-container'
+  containerDiv.innerHTML = `
+    <div id="dcs-ios-wrapper">
+      <div id="dcs-left"></div>
     </div>
-    <div id="dcs-container">
-      <div id="dcs-ios-wrapper">
-        <div id="dcs-left">
-        </div>
-      </div>
-      <div id="dcs-splitbar">
-        <div style="flex:1 0 0"></div>
-        <div id="dcs-splitbar-text">&gt;</div>
-        <div style="flex:1 0 0"></div>
-      </div>
+    <div id="dcs-splitbar">
+      <div style="flex:1 0 0"></div>
+      <div id="dcs-splitbar-text">&gt;</div>
+      <div style="flex:1 0 0"></div>
     </div>
-  `)
-
-  $('#main-outlet-wrapper').wrap('<div id="dcs-right"></div>')
+  `
+  
+  document.body.insertBefore(ghostDiv, document.body.firstChild)
+  document.body.insertBefore(containerDiv, document.body.firstChild)
+  
+  // Wrap #main-outlet-wrapper in #dcs-right
+  const mainOutletWrapper = document.getElementById('main-outlet-wrapper')
+  if (mainOutletWrapper) {
+    const rightDiv = document.createElement('div')
+    rightDiv.id = 'dcs-right'
+    mainOutletWrapper.parentNode.insertBefore(rightDiv, mainOutletWrapper)
+    rightDiv.appendChild(mainOutletWrapper)
+  }
 
   // Prevent scrolling of the Discourse page (right) when scrolling in iframe
   // reaches top / bottom.
@@ -76,26 +87,28 @@ export function onAfterRender(container) {
   */
 
   container.dcsLayout = new DcsLayout(appCtrl)
-
+  
   // Set the click handler for the split bar
   const router = container.lookup('service:router')
-  $('#dcs-splitbar').click(() => {
-    const showRight = !container.dcsLayout.getShowRightQP()
-    router.transitionTo({ queryParams: { ['showRight']: showRight } })
-  })
-
+  const splitbar = document.getElementById('dcs-splitbar')
+  if (splitbar) {
+    splitbar.addEventListener('click', () => {
+      const showRight = !container.dcsLayout.getShowRightQP()
+      router.transitionTo({ queryParams: { showRight: showRight } })
+    })
+  }
+  
   // Set the "a" hotkey for debug display
-  // https://stackoverflow.com/a/2879095/3567351
   const user = User.current()
   const userIsAdmin = user && user['admin']
   if (userIsAdmin) {
-    $(document).keydown(function(e) {
+    document.addEventListener('keydown', (e) => {
       // Alt+a
-      if (e['keyCode'] === 65 && e['altKey']) {
-        $('html').toggleClass('dcs-debug')
+      if (e.keyCode === 65 && e.altKey) {
+        document.documentElement.classList.toggle('dcs-debug')
       }
       // Alt+b
-      if (e['keyCode'] === 66 && e['altKey']) {
+      if (e.keyCode === 66 && e.altKey) {
         container.dcsLayout.setLayout(1)
       }
     })
