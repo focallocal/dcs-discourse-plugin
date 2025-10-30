@@ -108,7 +108,7 @@ html.dcs2[dcs-layout='3']:not(.dcs-wide) #dcs-left {
 
 html.dcs2 #dcs-splitbar {
   flex: 0 0 23px;
-  background-color: rgb(0, 111, 81);
+  background-color: #2596be;
   flex-direction: column;
   cursor: pointer;
   display: none;
@@ -165,27 +165,33 @@ html.dcs2 #dcs-ghost .dcs-ghost-splitbar {
   left: 0;
   bottom: 0;
   width: 23px;
-  background-color: rgb(0, 111, 81);
+  background-color: #2596be;
 }
 
 /*******************************************************************************
 	Hide Docuss Tags
 *******************************************************************************/
 
-/* Hide dcs tags in tag filter dropdown */
+/* Hide all dcs tags in tag filter dropdown */
 html.dcs2:not(.dcs-debug) li[data-name^='dcs-'] {
   display: none;
 }
 
-/* Hide dcs tags in tag chooser */
+/* Hide all dcs tags in tag chooser */
 html.dcs2:not(.dcs-debug) .mini-tag-chooser > div[data-name^='dcs-'] > span,
 html.dcs2:not(.dcs-debug) .mini-tag-chooser .selected-tag[data-value^='dcs-'] {
   display: none;
 }
 
-/* Hide dcs tags everywhere else */
-/* NOTICE THAT IT DOESN'T WORK WELL IN THE TAGS PAGE */
+/* Hide all dcs tags everywhere else */
 html.dcs2:not(.dcs-debug) a.discourse-tag[data-tag-name^='dcs-'] {
+  display: none;
+}
+
+/* Hide all regular tags in topic list and pages */
+html.dcs2:not(.dcs-debug) .topic-tags,
+html.dcs2:not(.dcs-debug) .tags-container,
+html.dcs2:not(.dcs-debug) .tag-box {
   display: none;
 }
 
@@ -222,6 +228,11 @@ html.dcs2:not(.dcs-debug).dcs-disable-cats
   .navigation-container
   li[title='all topics grouped by category'] {
   display: none !important;
+}
+
+/* Hide category cells in topic list */
+html.dcs2:not(.dcs-debug).dcs-disable-cats td.category {
+  display: none;
 }
 
 /* Hide category links in topic list footer. This will cause ugly bugs. For 
@@ -444,5 +455,22 @@ html.dcs3 #dcs-left,
 html.dcs3 #dcs-right {
   flex: 1 0 0;
   overflow-y: auto; /* Allow for a vertical scrollbar */
+  display: none;
+}
+
+/*******************************************************************************
+	Hide new Discourse sidebar in footer
+*******************************************************************************/
+
+/* Hide the new Discourse 3.6+ sidebar that appears at the bottom */
+html.dcs2 .sidebar-wrapper {
+  display: none;
+}
+
+html.dcs2 .sidebar-toggle-button {
+  display: none;
+}
+
+html.dcs2 footer.topic-list-bottom .sidebar-footer-toggle {
   display: none;
 }

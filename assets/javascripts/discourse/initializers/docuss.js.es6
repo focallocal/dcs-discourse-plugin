@@ -161,6 +161,23 @@ export default {
                 routeName: currentRouteName,
                 queryParamsOnly,
               });
+              
+              // Hide Discourse sidebar when on Docuss map
+              const isSidebarService = container.lookup("service:sidebar");
+              if (isSidebarService && currentRouteName === "docuss.index") {
+                try {
+                  // For newer Discourse versions with sidebar service
+                  if (typeof isSidebarService.closeSidebar === 'function') {
+                    isSidebarService.closeSidebar();
+                    console.log("✓ Sidebar closed for docuss.index");
+                  } else if (isSidebarService.toggleSidebar && typeof isSidebarService.toggleSidebar === 'function') {
+                    // Some versions use toggleSidebar
+                    isSidebarService.toggleSidebar();
+                  }
+                } catch (e) {
+                  console.warn("Could not close sidebar:", e);
+                }
+              }
             } catch (e) {
               console.warn("onDidTransition failed:", e);
             }
