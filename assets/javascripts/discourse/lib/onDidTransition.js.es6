@@ -10,13 +10,15 @@ export function onDidTransition({
   routeName,
   queryParamsOnly
 }) {
-  //console.log('onDidTransition: ', routeName)
+  console.log('🔄 onDidTransition called with route:', routeName, 'queryParamsOnly:', queryParamsOnly)
   iframe
     .readyForTransitions()
     .then(() => {
+      console.log('✓ iframe ready, calling onDidTransition2')
       onDidTransition2({ container, iframe, queryParamsOnly, routeName })
     })
     .catch(e => {
+      console.error('❌ iframe.readyForTransitions failed:', e)
       if (routeName.startsWith('docuss')) {
         // Show the error page
         container.dcsLayout.setLayout(0)
@@ -31,7 +33,7 @@ export function onDidTransition({
 //------------------------------------------------------------------------------
 
 function onDidTransition2({ container, iframe, routeName, queryParamsOnly }) {
-  //console.log('onDidTransition2: ', routeName)
+  console.log('📋 onDidTransition2 called with route:', routeName)
 
   if (routeName.startsWith('topic.')) {
     const route = container.lookup('route:topic')
@@ -59,6 +61,7 @@ function onDidTransition2({ container, iframe, routeName, queryParamsOnly }) {
 
 function onDidTransition3({ container, iframe, routeName, queryParamsOnly }) {
   //console.log('onDidTransition3: ', routeName)
+  console.log('📍 onDidTransition3 called with route:', routeName)
 
   //**** Docuss routes ****
   if (routeName.startsWith('docuss')) {
@@ -78,17 +81,26 @@ function onDidTransition3({ container, iframe, routeName, queryParamsOnly }) {
   if (routeName === 'tags.intersection') {
     const route = container.lookup('route:tags.intersection')
     const model = route['currentModel']
-    if (model.tag.id === 'dcs-comment' || model.tag.id === 'dcs-discuss') {
-      const tag = model.additionalTags[0]
+    console.log('🏷️ tags.intersection route detected:', {
+      tagId: model?.tag?.id,
+      additionalTags: model?.additionalTags,
+      allTags: model?.tags
+    })
+    if (model?.tag?.id === 'dcs-comment' || model?.tag?.id === 'dcs-discuss') {
+      const tag = model.additionalTags?.[0]
+      console.log('✓ Found dcs mode tag, dcsTag:', tag)
       const parsed = DcsTag.parse(tag)
       if (parsed) {
+        console.log('✓ DcsTag parsed:', parsed)
         const { pageName, triggerId } = parsed
         const isCommentMode = model.tag.id === 'dcs-comment'
         const interactMode = isCommentMode ? 'COMMENT' : 'DISCUSS'
         const layout = container.dcsLayout.getShowRightQP() ? 3 : 2
+        console.log('→ Setting layout to:', layout, 'for mode:', interactMode)
         const dcsRoute = { layout, pageName, triggerId, interactMode }
         const hasRedirected = iframe.didTransition(dcsRoute)
         if (hasRedirected) {
+          console.log('⟲ Route was redirected')
           return
         }
         if (!queryParamsOnly) {
@@ -99,7 +111,11 @@ function onDidTransition3({ container, iframe, routeName, queryParamsOnly }) {
         }
         container.dcsLayout.setLayout(layout)
         return
+      } else {
+        console.log('⚠️ Failed to parse dcsTag')
       }
+    } else {
+      console.log('⚠️ Not a dcs-comment/dcs-discuss route, tags are:', model?.tag?.id, model?.additionalTags)
     }
   }
 
