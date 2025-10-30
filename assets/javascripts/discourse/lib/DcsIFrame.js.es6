@@ -478,16 +478,25 @@ export class DcsIFrame {
 
 		// Ember doesn't support anchors. So we need to manage them manually.
 		// https://github.com/discourse/discourse/blob/35bef72d4ed6d530468bdc091bc076d431a2cdc4/app/assets/javascripts/discourse/lib/discourse-location.js.es6#L85
-		const location = this.container.lookup('location:discourse-location')
-		if (hash !== location.location.hash) {
-			const url = hash || path // "hash" to set the hash, "path" to reset the hash
-			transition.then(() => {
-				if (mode === 'REPLACE' || transitionActuallyOccurred) {
-					location['replaceURL'](url)
-				} else {
-					location['setURL'](url)
-				}
-			})
+		try {
+			const location = this.container.lookup('location:discourse-location')
+			if (location && hash !== window.location.hash) {
+				const url = hash || path // "hash" to set the hash, "path" to reset the hash
+				transition.then(() => {
+					if (mode === 'REPLACE' || transitionActuallyOccurred) {
+						if (typeof location['replaceURL'] === 'function') {
+							location['replaceURL'](url)
+						}
+					} else {
+						if (typeof location['setURL'] === 'function') {
+							location['setURL'](url)
+						}
+					}
+				})
+			}
+		} catch (e) {
+			// Location service may not be available or structure may have changed
+			console.warn('Failed to handle location hash:', e)
 		}
 	}
 

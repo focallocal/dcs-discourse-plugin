@@ -155,8 +155,9 @@ export class DcsLayout {
     if (this.saveMobileView === null) {
       this.saveMobileView = this.appCtrl.site.mobileView || false
     }
-    const forceMobileView = this.saveMobileView || layout === 2 || layout === 3
-    this.appCtrl.site.set('mobileView', forceMobileView)
+    // NOTE: In Discourse 3.6/Ember 6, mobileView is a getter-only property and cannot be set
+    // const forceMobileView = this.saveMobileView || layout === 2 || layout === 3
+    // this.appCtrl.site.set('mobileView', forceMobileView)
 
     this.prevLayout = layout
   }
