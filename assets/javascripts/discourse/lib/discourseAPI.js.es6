@@ -5,16 +5,37 @@ export const discourseAPI = {
 		return `Docuss comments (${dcsTag})`
 	},
 
-	_request({ method, path, params = undefined, moreAjaxSettings = {} }) {
+	_request({ method, path, params = undefined, moreHeaders = {} }) {
 		return new Promise((resolve, reject) => {
-			const settings = {
-				['type']: method,
-				['url']: path,
-				['data']: params,
-				['success']: data => resolve(data)
+			const options = {
+				method: method,
+				headers: {
+					'Content-Type': 'application/json',
+					...moreHeaders
+				}
 			}
-			const allSettings = Object.assign(settings, moreAjaxSettings)
-			$.ajax(allSettings).fail(e => reject(e.responseText))
+
+			if (params && (method === 'POST' || method === 'PUT')) {
+				options.body = JSON.stringify(params)
+			}
+
+			fetch(path, options)
+				.then(response => {
+					if (!response.ok) {
+						return response.text().then(text => {
+							reject(text || `HTTP ${response.status}: ${response.statusText}`)
+						})
+					}
+					return response.json()
+				})
+				.then(data => {
+					if (data) {
+						resolve(data)
+					}
+				})
+				.catch(error => {
+					reject(error.message || error)
+				})
 		})
 	},
 

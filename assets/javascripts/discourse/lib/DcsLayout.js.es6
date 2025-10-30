@@ -4,9 +4,8 @@ export class DcsLayout {
   constructor(appCtrl) {
     this.appCtrl = appCtrl
     // Delay mobileView check to avoid deprecation warning
-    this.saveMobileView = null;
+    this.saveMobileView = null
     this.left = document.getElementById('dcs-left')
-    //this.right = document.getElementById('dcs-right')
     this.ghost = document.getElementById('dcs-ghost')
     this.prevLayout = null
   }
@@ -16,24 +15,38 @@ export class DcsLayout {
   }
 
   replaceLeftWithDiv(html) {
-    $(this.left).replaceWith(`    
-      <div id="dcs-left" style="${this.left.style.cssText}">
-        <div style="padding:20px">
-          ${html}
-        </div>
-      </div>
-    `)
+    const oldLeft = this.left
+    const newDiv = document.createElement('div')
+    newDiv.id = 'dcs-left'
+    newDiv.style.cssText = oldLeft.style.cssText
+    newDiv.innerHTML = `<div style="padding:20px">${html}</div>`
+    
+    oldLeft.parentNode.replaceChild(newDiv, oldLeft)
     this.left = document.getElementById('dcs-left')
   }
 
   replaceLeftWithIFrame(src) {
+    const oldLeft = this.left
     const additionalAttr = this.appCtrl.siteSettings['docuss_iframe_attributes']
-
-    $(this.left).replaceWith(`
-      <iframe id="dcs-left" frameborder="0" style="${this.left.style.cssText}" 
-          src="${src}" ${additionalAttr}>
-      </iframe>
-    `)
+    
+    const iframe = document.createElement('iframe')
+    iframe.id = 'dcs-left'
+    iframe.frameBorder = '0'
+    iframe.style.cssText = oldLeft.style.cssText
+    iframe.src = src
+    
+    // Set additional attributes if provided
+    if (additionalAttr) {
+      const attrs = additionalAttr.split(' ')
+      attrs.forEach(attr => {
+        const [key, value] = attr.split('=')
+        if (key && value) {
+          iframe.setAttribute(key, value.replace(/"/g, ''))
+        }
+      })
+    }
+    
+    oldLeft.parentNode.replaceChild(iframe, oldLeft)
     this.left = document.getElementById('dcs-left')
   }
 
@@ -63,46 +76,26 @@ export class DcsLayout {
   }
 
   setLayout(layout) {
-    //afterRender().then(() => {
+    const html = document.documentElement
+    
     switch (this.prevLayout) {
       case null:
-        switch (layout) {
-          case 0:
-            // Startup => FULL_CLIENT
-            $('html').attr('dcs-layout', layout)
-            break
-          case 1:
-            // Startup => FULL_DISCOURSE
-            $('html').attr('dcs-layout', layout)
-            break
-          case 2:
-            // Startup => WITH_SPLIT_BAR
-            $('html').attr('dcs-layout', layout)
-            break
-          case 3:
-            // Startup => WITH_SPLIT_BAR
-            $('html').attr('dcs-layout', layout)
-            break
-        }
+        html.setAttribute('dcs-layout', layout)
         break
 
       case 0:
         switch (layout) {
           case 0:
-            // FULL_CLIENT => FULL_CLIENT
             break
           case 1:
-            // FULL_CLIENT => FULL_DISCOURSE
-            $('html').attr('dcs-layout', layout)
+            html.setAttribute('dcs-layout', layout)
             break
           case 2:
-            // FULL_CLIENT => WITH_SPLIT_BAR
-            $('html').attr('dcs-layout', layout)
+            html.setAttribute('dcs-layout', layout)
             break
           case 3:
-            // FULL_CLIENT => WITH_SPLIT_BAR
             this._animateGhostRL(() => {
-              $('html').attr('dcs-layout', layout)
+              html.setAttribute('dcs-layout', layout)
             })
             break
         }
@@ -111,19 +104,11 @@ export class DcsLayout {
       case 1:
         switch (layout) {
           case 0:
-            // FULL_DISCOURSE => FULL_CLIENT
-            $('html').attr('dcs-layout', layout)
+          case 2:
+          case 3:
+            html.setAttribute('dcs-layout', layout)
             break
           case 1:
-            // FULL_DISCOURSE => FULL_DISCOURSE
-            break
-          case 2:
-            // FULL_DISCOURSE => WITH_SPLIT_BAR
-            $('html').attr('dcs-layout', layout)
-            break
-          case 3:
-            // FULL_DISCOURSE => WITH_SPLIT_BAR
-            $('html').attr('dcs-layout', layout)
             break
         }
         break
@@ -131,20 +116,14 @@ export class DcsLayout {
       case 2:
         switch (layout) {
           case 0:
-            // WITH_SPLIT_BAR => FULL_CLIENT
-            $('html').attr('dcs-layout', layout)
-            break
           case 1:
-            // WITH_SPLIT_BAR => FULL_DISCOURSE
-            $('html').attr('dcs-layout', layout)
+            html.setAttribute('dcs-layout', layout)
             break
           case 2:
-            // WITH_SPLIT_BAR => WITH_SPLIT_BAR
             break
           case 3:
-            // WITH_SPLIT_BAR => WITH_SPLIT_BAR
             this._animateGhostRL(() => {
-              $('html').attr('dcs-layout', layout)
+              html.setAttribute('dcs-layout', layout)
             })
             break
         }
@@ -153,21 +132,17 @@ export class DcsLayout {
       case 3:
         switch (layout) {
           case 0:
-            // WITH_SPLIT_BAR => FULL_CLIENT
-            $('html').attr('dcs-layout', layout)
+            html.setAttribute('dcs-layout', layout)
             this._animateGhostLR()
             break
           case 1:
-            // WITH_SPLIT_BAR => FULL_DISCOURSE
-            $('html').attr('dcs-layout', layout)
+            html.setAttribute('dcs-layout', layout)
             break
           case 2:
-            // WITH_SPLIT_BAR => WITH_SPLIT_BAR
-            $('html').attr('dcs-layout', layout)
+            html.setAttribute('dcs-layout', layout)
             this._animateGhostLR()
             break
           case 3:
-            // WITH_SPLIT_BAR => WITH_SPLIT_BAR
             break
         }
         break
@@ -176,18 +151,10 @@ export class DcsLayout {
         u.throw()
     }
 
-    // Force the mobile view in case of splitted screen.
-    // Mobile view is important in at least this case:
-    // The topic-navigation component is responsible for
-    // displaying either a vertical timeline (on large screens) or a small
-    // horizontal gauge (on small screens). See this code:
-    // https://github.com/discourse/discourse/blob/502b1316d04c2b228b0974f40ac263fe4df2ae0a/app/assets/javascripts/discourse/components/topic-navigation.js.es6#L19
-    // This code fails because it performs a computation based on the window
-    // width instead of #main-outlet width.
     // Check mobileView at runtime instead of during initialization
     if (this.saveMobileView === null) {
-    this.saveMobileView = this.appCtrl.site.mobileView || false;
-  }
+      this.saveMobileView = this.appCtrl.site.mobileView || false
+    }
     const forceMobileView = this.saveMobileView || layout === 2 || layout === 3
     this.appCtrl.site.set('mobileView', forceMobileView)
 
@@ -202,18 +169,8 @@ function isWideScreen() {
 }
 
 function setWideClass() {
-  $('html').toggleClass('dcs-wide', isWideScreen())
+  document.documentElement.classList.toggle('dcs-wide', isWideScreen())
 }
 
 window.addEventListener('resize', setWideClass)
-
 setWideClass()
-
-//------------------------------------------------------------------------------
-
-const afterRender = res =>
-  new Promise(resolve => {
-    Ember.run.schedule('afterRender', null, () => resolve(res))
-  })
-
-//------------------------------------------------------------------------------

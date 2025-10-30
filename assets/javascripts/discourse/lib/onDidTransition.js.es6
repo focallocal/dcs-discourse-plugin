@@ -38,15 +38,15 @@ function onDidTransition2({ container, iframe, routeName, queryParamsOnly }) {
     const model = route['currentModel']
     // Wait for the "tags" field. The "tags" field is not always there
     // immediately, especially when creating a new topic
-    // 15x200 = 3s total.Tried 1,5s before -> not enough.
+    // 15x200 = 3s total. Tried 1,5s before -> not enough.
     const hasTagsProp = () => model.hasOwnProperty('tags')
     u.async.retryDelay(hasTagsProp, 15, 200).then(
       () => {
         onDidTransition3({ container, iframe, routeName, queryParamsOnly })
       },
       () => {
-        // Property "tags" not found in topic model'. This happens when topis
-        // has no tags. Show the normal Discourse.
+        // Property "tags" not found in topic model. This happens when topics
+        // have no tags. Show the normal Discourse.
         container.dcsLayout.setLayout(1)
       }
     )
@@ -69,7 +69,7 @@ function onDidTransition3({ container, iframe, routeName, queryParamsOnly }) {
     if (hasRedirected) {
       return
     }
-    $('html').removeClass('dcs-tag dcs-topic dcs-comment dcs-discuss')
+    document.documentElement.classList.remove('dcs-tag', 'dcs-topic', 'dcs-comment', 'dcs-discuss')
     container.dcsLayout.setLayout(dcsRoute.layout)
     return
   }
@@ -93,8 +93,8 @@ function onDidTransition3({ container, iframe, routeName, queryParamsOnly }) {
         }
         if (!queryParamsOnly) {
           const modeClass = isCommentMode ? 'dcs-comment' : 'dcs-discuss'
-          $('html').removeClass('dcs-tag dcs-topic dcs-comment dcs-discuss')
-          $('html').addClass(`dcs-tag ${modeClass}`)
+          document.documentElement.classList.remove('dcs-tag', 'dcs-topic', 'dcs-comment', 'dcs-discuss')
+          document.documentElement.classList.add('dcs-tag', modeClass)
           afterRender().then(() => modifyTagPage(isCommentMode))
         }
         container.dcsLayout.setLayout(layout)
@@ -124,8 +124,8 @@ function onDidTransition3({ container, iframe, routeName, queryParamsOnly }) {
       }
       if (!queryParamsOnly) {
         const modeClass = isCommentMode ? 'dcs-comment' : 'dcs-discuss'
-        $('html').removeClass('dcs-tag dcs-topic dcs-comment dcs-discuss')
-        $('html').addClass(`dcs-topic ${modeClass}`)
+        document.documentElement.classList.remove('dcs-tag', 'dcs-topic', 'dcs-comment', 'dcs-discuss')
+        document.documentElement.classList.add('dcs-topic', modeClass)
         afterRender().then(() => modifyTopicPage(dcsTag, isCommentMode))
       }
       container.dcsLayout.setLayout(layout)
@@ -134,7 +134,7 @@ function onDidTransition3({ container, iframe, routeName, queryParamsOnly }) {
   }
 
   //**** Other routes ****
-  $('html').removeClass('dcs-tag dcs-topic dcs-comment dcs-discuss')
+  document.documentElement.classList.remove('dcs-tag', 'dcs-topic', 'dcs-comment', 'dcs-discuss')
   const layout = 1
   const dcsRoute = { layout, pathname: location.pathname }
   const hasRedirected = iframe.didTransition(dcsRoute)
@@ -149,26 +149,27 @@ function onDidTransition3({ container, iframe, routeName, queryParamsOnly }) {
 function modifyTagPage(commentMode) {
   // Add the title
   /*
-  $('.navigation-container').prepend(`
-    <ul class="nav nav-pills dcs-tag-title">
-      <li>
-        <a style="pointer-events:none">
-          ${commentMode ? 'Comments' : 'Discussions'}          
-        </a>
-      </li>
-    </ul>
-  `)
+  const navContainer = document.querySelector('.navigation-container')
+  if (navContainer) {
+    const ul = document.createElement('ul')
+    ul.className = 'nav nav-pills dcs-tag-title'
+    ul.innerHTML = `<li><a style="pointer-events:none">${commentMode ? 'Comments' : 'Discussions'}</a></li>`
+    navContainer.insertBefore(ul, navContainer.firstChild)
+  }
   */
 
   // Change the "New Topic" button to "New Comment"
   if (commentMode) {
-    $('#create-topic > .d-button-label').text('New Comment')
+    const button = document.querySelector('#create-topic > .d-button-label')
+    if (button) {
+      button.textContent = 'New Comment'
+    }
   }
 
   // Change the "There are no latest topics. Browse all categories or view
   // latest topics" message when there is no topic
-  const footer = $('footer.topic-list-bottom')
-  if (footer.length) {
+  const footer = document.querySelector('footer.topic-list-bottom')
+  if (footer) {
     let html = `
       <div style="margin-left:12px">
         <p><i>No ${commentMode ? 'comment' : 'topic'} yet</i></p>
@@ -177,10 +178,13 @@ function modifyTagPage(commentMode) {
       html += `<p>(you need to log in before you can create one)</p>`
     }
     html += `</div>`
-    footer.html(html)
+    footer.innerHTML = html
 
     // Hide the notifications button, because it doesn't work on empty tags
-    $('.tag-notifications-button').hide()
+    const notificationBtn = document.querySelector('.tag-notifications-button')
+    if (notificationBtn) {
+      notificationBtn.style.display = 'none'
+    }
   }
 }
 
@@ -189,30 +193,43 @@ function modifyTagPage(commentMode) {
 function modifyTopicPage(dcsTag, commentMode) {
   if (commentMode) {
     // Move the topic-map on top
-    //$('.topic-map').prependTo('#post_1 .topic-body')
+    // const topicMap = document.querySelector('.topic-map')
+    // const post1 = document.querySelector('#post_1 .topic-body')
+    // if (topicMap && post1) {
+    //   post1.insertBefore(topicMap, post1.firstChild)
+    // }
+    
     /*
     // Add the title
-    $('#main-outlet').prepend(`
-      <h2 id="dcs-comment-title" style="margin-bottom:3rem; margin-left:10px">
-        Comments
-      </h2>
-    `)
+    const mainOutlet = document.querySelector('#main-outlet')
+    if (mainOutlet) {
+      const h2 = document.createElement('h2')
+      h2.id = 'dcs-comment-title'
+      h2.style.cssText = 'margin-bottom:3rem; margin-left:10px'
+      h2.textContent = 'Comments'
+      mainOutlet.insertBefore(h2, mainOutlet.firstChild)
+    }
     */
   } else {
     // Add the "back" link
     // WARNING: if we already were on a dcs topic page, the "back"
     // link is already there. This happens when using the "Suggested Topics" list
     // at the bottom on a topic (admin mode only, I think)
-    if (!$('#dcs-back').length) {
-      $('#main-outlet > .ember-view[class*="category-"]').prepend(`
-      <div id="dcs-back" class="list-controls">
-        <div class="container">
-          <a style="line-height:28px" href="/tags/intersection/dcs-discuss/${dcsTag}">
-            &#8630; Back to topic list
-          </a>
-        </div>
-      </div>
-    `)
+    if (!document.querySelector('#dcs-back')) {
+      const categoryDiv = document.querySelector('#main-outlet > .ember-view[class*="category-"]')
+      if (categoryDiv) {
+        const backDiv = document.createElement('div')
+        backDiv.id = 'dcs-back'
+        backDiv.className = 'list-controls'
+        backDiv.innerHTML = `
+          <div class="container">
+            <a style="line-height:28px" href="/tags/intersection/dcs-discuss/${dcsTag}">
+              &#8630; Back to topic list
+            </a>
+          </div>
+        `
+        categoryDiv.insertBefore(backDiv, categoryDiv.firstChild)
+      }
     }
   }
 }

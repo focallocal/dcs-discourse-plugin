@@ -262,14 +262,14 @@ export class DcsIFrame {
 			if (!this.currentDescr) {
 				// When we load the application on a FULL_DISCOURSE route, we set
 				// the logo and menu to the first website. THIS WILL PROBABLY NEED
-				// TO BE CHANGED, as some user want a dedicated Discourse category
-				// per website. When initially loading the app on this category, the
-				// corresponding website should be set instead of the first one.
-				this.currentDescr = this.descrArray[0]
-				$('html').addClass(`dcs-website-${this.currentDescr.websiteName}`)
-				if (this.currentDescr.logo) {
-					this.container.dcsHeaderLogo.setLogo(this.currentDescr.logo)
-				}
+			// TO BE CHANGED, as some user want a dedicated Discourse category
+			// per website. When initially loading the app on this category, the
+			// corresponding website should be set instead of the first one.
+			this.currentDescr = this.descrArray[0]
+			document.documentElement.classList.add(`dcs-website-${this.currentDescr.websiteName}`)
+			if (this.currentDescr.logo) {
+				this.container.dcsHeaderLogo.setLogo(this.currentDescr.logo)
+			}
 			}
 
 			this._notifyClientOfCurrentRoute()
@@ -303,9 +303,9 @@ export class DcsIFrame {
 		if (descr !== this.currentDescr) {
 			// Set the descr class
 			if (this.currentDescr) {
-				$('html').removeClass(`dcs-website-${this.currentDescr.websiteName}`)
+				document.documentElement.classList.remove(`dcs-website-${this.currentDescr.websiteName}`)
 			}
-			$('html').addClass(`dcs-website-${descr.websiteName}`)
+			document.documentElement.classList.add(`dcs-website-${descr.websiteName}`)
 			this.currentDescr = descr
 
 			// Set the descr logo
@@ -623,15 +623,24 @@ export class DcsIFrame {
 			const safeTitle = escapeHtml(discourseTitle)
 
 			// Remove previous title if any
-			$('.dcs-title-prefix').remove()
+			const titlePrefix = document.querySelector('.dcs-title-prefix')
+			if (titlePrefix) {
+				titlePrefix.remove()
+			}
 
 			// In tag route, we add the title at the top of the page
 			/*
-      $('.navigation-container').after(
-        `<h1 class="dcs-title-prefix">${safeTitle}</h1>`
-      )
+      const navContainer = document.querySelector('.navigation-container')
+      const h1 = document.createElement('h1')
+      h1.className = 'dcs-title-prefix'
+      h1.textContent = safeTitle
+      navContainer.parentNode.insertBefore(h1, navContainer.nextSibling)
       */
-			$('.tag-show-heading').text(safeTitle).css({ display: 'inline-flex' })
+			const tagShowHeading = document.querySelector('.tag-show-heading')
+			if (tagShowHeading) {
+				tagShowHeading.textContent = safeTitle
+				tagShowHeading.style.display = 'inline-flex'
+			}
 
 			// In topic route, we transform the topic title. The issue here is that
 			// the title is rendered very late, so we nee to wait until the title
@@ -643,35 +652,39 @@ export class DcsIFrame {
 				if (!router['currentPath'].startsWith('topic.')) {
 					throw 'bad route'
 				}
-				const $title = $('.fancy-title')
-				return $title.length && $title
+				const titleEl = document.querySelector('.fancy-title')
+				return titleEl && titleEl
 			}
 			u.async
 				.retryDelay(hasTitle, 15, 200, 'title not found') // 15*200 = 3s
 				.then(
-					$title => {
+					titleEl => {
 						if (this.currentRoute.interactMode === 'COMMENT') {
-							$title.text(safeTitle)
+							titleEl.textContent = safeTitle
 
 							// By default, the title is hidden with css, so bring it back
-							const $topicTitle = $('#topic-title')
-							$topicTitle.css('display', 'block')
+							const topicTitle = document.getElementById('topic-title')
+							if (topicTitle) {
+								topicTitle.style.display = 'block'
+							}
 
 							// Is there a topic map? The topic map is th grey rectangular area
 							// containing the number of posters, viewers, etc.
-							const $topicMap = $('.topic-map')
-							if ($topicMap.length) {
+							const topicMap = document.querySelector('.topic-map')
+							if (topicMap) {
 								// Make room of moving the topic map on top of the title (see
 								// the css)
-								$topicTitle.css('margin-top', '50px')
+								if (topicTitle) {
+									topicTitle.style.marginTop = '50px'
+								}
 							}
 						} else {
 							const topicCtrl = this.container.lookup('controller:topic')
 							const originalTitle = topicCtrl.get('model.title')
-							$title.html(
+							titleEl.innerHTML =
 								`<span class="dcs-title-prefix">${safeTitle} | </span>${originalTitle}`
-							)
 						}
+					}
 					},
 					e => {
 						if (e === 'bad route') {
