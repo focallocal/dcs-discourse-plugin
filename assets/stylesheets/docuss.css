@@ -503,18 +503,18 @@ html.dcs3 #dcs-right {
 }
 
 /*******************************************************************************
-	Hide new Discourse sidebar in footer
+	Hide new Discourse sidebar on all Docuss pages
 *******************************************************************************/
 
-/* Hide the new Discourse 3.6+ sidebar that appears at the bottom */
-html.dcs2 .sidebar-wrapper {
+/* Hide the new Discourse 3.6+ sidebar that appears at the bottom (on all Docuss pages) */
+html.dcs2.dcs-map .sidebar-wrapper {
   display: none;
 }
 
-html.dcs2 .sidebar-toggle-button {
+html.dcs2.dcs-map .sidebar-toggle-button {
   display: none;
 }
 
-html.dcs2 footer.topic-list-bottom .sidebar-footer-toggle {
+html.dcs2.dcs-map footer.topic-list-bottom .sidebar-footer-toggle {
   display: none;
 }

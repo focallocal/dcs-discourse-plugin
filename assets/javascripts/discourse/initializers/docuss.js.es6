@@ -162,14 +162,21 @@ export default {
                 queryParamsOnly,
               });
               
-              // Hide Discourse sidebar when on Docuss map
+              // Add class to identify Docuss pages for CSS scoping
+              if (currentRouteName.startsWith('docuss')) {
+                document.documentElement.classList.add('dcs-map');
+              } else {
+                document.documentElement.classList.remove('dcs-map');
+              }
+              
+              // Hide Discourse sidebar on all Docuss pages
               const isSidebarService = container.lookup("service:sidebar");
-              if (isSidebarService && currentRouteName === "docuss.index") {
+              if (isSidebarService && currentRouteName.startsWith('docuss')) {
                 try {
                   // For newer Discourse versions with sidebar service
                   if (typeof isSidebarService.closeSidebar === 'function') {
                     isSidebarService.closeSidebar();
-                    console.log("✓ Sidebar closed for docuss.index");
+                    console.log("✓ Sidebar closed for docuss route");
                   } else if (isSidebarService.toggleSidebar && typeof isSidebarService.toggleSidebar === 'function') {
                     // Some versions use toggleSidebar
                     isSidebarService.toggleSidebar();
