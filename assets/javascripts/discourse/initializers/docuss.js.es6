@@ -38,16 +38,15 @@ export default {
       // Run after-render logic - this creates container.dcsLayout
       schedule("afterRender", () => {
         try {
-          const router = container.lookup("service:router");
-          const currentRouteName = router?.currentRouteName;
-          
-          onAfterRender(container, currentRouteName);
+          onAfterRender(container);
           console.log("✓ onAfterRender completed, dcsLayout ready");
           
           // Trigger initial transition after layout is ready
+          const router = container.lookup("service:router");
+          const currentRouteName = router?.currentRouteName;
           console.log("Initial route:", currentRouteName);
           
-          if (currentRouteName && dcsIFrame) {
+          if (currentRouteName && dcsIFrame && container.dcsLayout) {
             try {
               onDidTransition({
                 container,

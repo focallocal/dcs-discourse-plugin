@@ -508,13 +508,16 @@ html.dcs3 #dcs-right {
 
 /* Hide the new Discourse 3.6+ sidebar that appears at the bottom (on all Docuss pages) */
 html.dcs2.dcs-map .sidebar-wrapper {
-  display: none;
+  display: none !important;
+  width: 0 !important;
+  min-width: 0 !important;
+  flex: 0 !important;
 }
 
 html.dcs2.dcs-map .sidebar-toggle-button {
-  display: none;
+  display: none !important;
 }
 
 html.dcs2.dcs-map footer.topic-list-bottom .sidebar-footer-toggle {
-  display: none;
+  display: none !important;
 }
