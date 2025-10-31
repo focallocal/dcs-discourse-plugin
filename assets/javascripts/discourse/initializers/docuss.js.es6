@@ -347,34 +347,8 @@ export default {
         });
       });
 
-      // ========================================
-      // Alt+A Toggle for Category/Tags (Admin only)
-      // ========================================
-      schedule("afterRender", () => {
-        try {
-          document.addEventListener("keydown", (ev) => {
-            if (ev.altKey && ev.key?.toLowerCase() === "a") {
-              try {
-                const categorySelect = document.querySelector(".category-chooser, .select-kit");
-                const tagBoxes = document.querySelectorAll(".tag-chooser, .tag-row, .tag-box");
-                
-                if (categorySelect) {
-                  categorySelect.style.display = 
-                    (categorySelect.style.display === "none") ? "" : "none";
-                }
-                
-                tagBoxes.forEach((tb) => {
-                  tb.style.display = (tb.style.display === "none") ? "" : "none";
-                });
-              } catch (e) {
-                console.warn("Alt+A toggle failed:", e);
-              }
-            }
-          });
-        } catch (e) {
-          console.error("Failed to attach Alt+A listener:", e);
-        }
-      });
+      // Alt+A toggle is already handled in onAfterRender.js
+      // It toggles the dcs-debug class which controls tag/category visibility via CSS
     });
   },
 };
