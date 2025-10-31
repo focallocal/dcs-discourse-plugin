@@ -187,12 +187,19 @@ export default {
       // ========================================
       const handlePageChange = (data) => {
         try {
-          const currentRouteName = resolveRouteName(data);
+          let routeName = resolveRouteName(data);
           
           // Extract URL
           const rawUrl =
             data?.url || (typeof data === "string" ? data : window.location.href);
           const normalizedUrl = normalizeUrl(rawUrl);
+          const normalizedPath = (() => {
+            try {
+              return new URL(normalizedUrl).pathname;
+            } catch (e) {
+              return "";
+            }
+          })();
           
           if (!normalizedUrl) {
             console.log("⚠ No URL provided, returning");
@@ -201,18 +208,18 @@ export default {
 
           if (!container.dcsLayout || !dcsIFrame) {
             console.log("⚠ Docuss not ready yet, deferring navigation", {
-              currentRouteName,
+              routeName,
               rawUrl,
             });
             pendingNavigation = {
-              currentRouteName,
+              currentRouteName: routeName,
               url: normalizedUrl,
             };
             return;
           }
 
           console.log("handlePageChange called:", { 
-            currentRouteName, 
+            routeName, 
             lastUrl, 
             newUrl: normalizedUrl, 
             urlChanged: normalizedUrl !== lastUrl,
@@ -230,12 +237,34 @@ export default {
             lastUrl && stripQuery(normalizedUrl) === stripQuery(lastUrl);
           lastUrl = normalizedUrl;
 
-          const isDocussRoute = currentRouteName?.startsWith('docuss');
-          const isTagsIntersection = currentRouteName === 'tags.intersection' ||
-                                     (currentRouteName?.startsWith('tags') && window.location.pathname.includes('/intersection/'));
-          const isTopicRoute = currentRouteName?.startsWith('topic.');
+          // Derive fallback routing info using the URL when router events omit names
+          const pathLooksDocuss =
+            normalizedPath === "/" ||
+            normalizedPath === "/docuss" ||
+            normalizedPath.startsWith("/docuss/");
+          const pathLooksTagsIntersection = normalizedPath.includes("/tags/intersection/");
+          const pathLooksTopic = /^\/t\//.test(normalizedPath);
+
+          if (!routeName) {
+            if (pathLooksDocuss) {
+              routeName = normalizedPath.startsWith("/docuss/")
+                ? "docuss-with-page"
+                : "docuss";
+            } else if (pathLooksTagsIntersection) {
+              routeName = "tags.intersection";
+            } else if (pathLooksTopic) {
+              routeName = "topic.fromParams";
+            }
+          }
+
+          const isDocussRoute = routeName?.startsWith('docuss') || pathLooksDocuss;
+          const isTagsIntersection =
+            routeName === 'tags.intersection' ||
+            (routeName?.startsWith('tags') && normalizedPath.includes('/intersection/')) ||
+            pathLooksTagsIntersection;
+          const isTopicRoute = routeName?.startsWith('topic.') || pathLooksTopic;
           const isDcsManagedRoute = isDocussRoute || isTagsIntersection || isTopicRoute;
-          const isAdminRoute = currentRouteName?.startsWith('admin');
+          const isAdminRoute = routeName?.startsWith('admin') || normalizedPath.startsWith('/admin');
 
           if (isAdminRoute) {
             document.documentElement.classList.remove('dcs2');
@@ -246,13 +275,13 @@ export default {
             return;
           }
 
-          if (currentRouteName && dcsIFrame && container.dcsLayout && isDcsManagedRoute) {
+          if (routeName && dcsIFrame && container.dcsLayout && isDcsManagedRoute) {
             try {
-              console.log("✓ All conditions met, calling onDidTransition for route:", currentRouteName);
+              console.log("✓ All conditions met, calling onDidTransition for route:", routeName);
               onDidTransition({
                 container,
                 iframe: dcsIFrame,
-                routeName: currentRouteName,
+                routeName,
                 queryParamsOnly,
               });
 
@@ -268,7 +297,7 @@ export default {
             }
           } else {
             console.log("⚠ Skipping onDidTransition - missing conditions:", {
-              hasRoute: !!currentRouteName,
+              hasRoute: !!routeName,
               hasIFrame: !!dcsIFrame,
               hasLayout: !!container.dcsLayout,
               isDcsManagedRoute,
