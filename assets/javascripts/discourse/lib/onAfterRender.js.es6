@@ -6,25 +6,13 @@ import User from 'discourse/models/user'
 export function onAfterRender(container) {
   const appCtrl = container.lookup('controller:application')
   
-  // Get current route to determine if we should add Docuss classes
-  const router = container.lookup('service:router')
-  const currentRouteName = router?.currentRouteName
+  // NOTE: DO NOT add/remove dcs2 class here!
+  // Route may not be ready yet during initial render
+  // The initializer handles class management based on route changes
+  // This function ONLY creates the DOM structure needed by Docuss
   
-  console.log('onAfterRender - currentRoute:', currentRouteName)
-  
-  // Only add dcs2 class if on a Docuss route
-  // Otherwise, remove all Docuss classes to ensure clean state
-  const isDcsRoute = currentRouteName && (currentRouteName.startsWith('docuss') || currentRouteName === 'tags.intersection')
-  
-  if (!isDcsRoute) {
-    console.log('⚠ Not on a Docuss route, removing dcs2 class')
-    document.documentElement.classList.remove('dcs2')
-    document.documentElement.classList.remove('dcs-map')
-    return
-  }
-  
-  // Add classes to the <html> tag
-  let classes = ['dcs2']
+  // Add Docuss-specific setting classes (not route-dependent)
+  let classes = []
   
   if (appCtrl.siteSettings['docuss_hide_sugg_topics']) {
     classes.push('dcs-disable-sugg')
