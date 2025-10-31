@@ -3,13 +3,23 @@ import { DcsLayout } from './DcsLayout'
 import User from 'discourse/models/user'
 
 //------------------------------------------------------------------------------
-export function onAfterRender(container, routeName = null) {
+export function onAfterRender(container) {
   const appCtrl = container.lookup('controller:application')
   
-  // Only add Docuss classes if on a Docuss route or if route is unknown yet
-  // If route is provided and it's not a Docuss route, don't add classes
-  if (routeName && !routeName.startsWith('docuss') && routeName !== 'tags.intersection') {
-    console.log('⚠ Not a Docuss route, skipping Docuss CSS class setup:', routeName)
+  // Get current route to determine if we should add Docuss classes
+  const router = container.lookup('service:router')
+  const currentRouteName = router?.currentRouteName
+  
+  console.log('onAfterRender - currentRoute:', currentRouteName)
+  
+  // Only add dcs2 class if on a Docuss route
+  // Otherwise, remove all Docuss classes to ensure clean state
+  const isDcsRoute = currentRouteName && (currentRouteName.startsWith('docuss') || currentRouteName === 'tags.intersection')
+  
+  if (!isDcsRoute) {
+    console.log('⚠ Not on a Docuss route, removing dcs2 class')
+    document.documentElement.classList.remove('dcs2')
+    document.documentElement.classList.remove('dcs-map')
     return
   }
   
@@ -96,7 +106,6 @@ export function onAfterRender(container, routeName = null) {
   container.dcsLayout = new DcsLayout(appCtrl)
   
   // Set the click handler for the split bar
-  const router = container.lookup('service:router')
   const splitbar = document.getElementById('dcs-splitbar')
   if (splitbar) {
     splitbar.addEventListener('click', () => {
