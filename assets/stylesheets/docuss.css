@@ -44,6 +44,20 @@ html.dcs2[dcs-layout='3'].dcs-wide #dcs-right {
 	Container
 *******************************************************************************/
 
+/* CRITICAL: Hide #dcs-container on non-Docuss pages (it still gets created in DOM but shouldn't be visible) */
+/* Using multiple selectors and properties to ensure it's completely invisible */
+html:not(.dcs2) #dcs-container,
+html:not(.dcs2) #dcs-ghost {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+  overflow: hidden !important;
+  visibility: hidden !important;
+  position: absolute !important;
+  z-index: -9999 !important;
+  pointer-events: none !important;
+}
+
 /* For layout 0 and 2 */
 html.dcs2 #dcs-container {
   position: fixed;
