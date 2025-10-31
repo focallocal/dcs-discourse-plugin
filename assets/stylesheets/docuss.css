@@ -40,12 +40,6 @@ html.dcs2[dcs-layout='3'].dcs-wide #dcs-right {
   padding-left: 50%;
 }
 
-/* Fix #main-outlet-wrapper display on Docuss pages */
-html.dcs2 #main-outlet-wrapper {
-  display: block !important;
-  margin-left: 5px !important;
-}
-
 /*******************************************************************************
 	Container
 *******************************************************************************/
