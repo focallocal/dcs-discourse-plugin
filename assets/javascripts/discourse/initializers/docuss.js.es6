@@ -38,12 +38,13 @@ export default {
       // Run after-render logic - this creates container.dcsLayout
       schedule("afterRender", () => {
         try {
-          onAfterRender(container);
+          const router = container.lookup("service:router");
+          const currentRouteName = router?.currentRouteName;
+          
+          onAfterRender(container, currentRouteName);
           console.log("✓ onAfterRender completed, dcsLayout ready");
           
           // Trigger initial transition after layout is ready
-          const router = container.lookup("service:router");
-          const currentRouteName = router?.currentRouteName;
           console.log("Initial route:", currentRouteName);
           
           if (currentRouteName && dcsIFrame) {
@@ -162,16 +163,19 @@ export default {
                 queryParamsOnly,
               });
               
-              // Add class to identify Docuss pages for CSS scoping
-              if (currentRouteName.startsWith('docuss')) {
+              // Add dcs2 class if on a Docuss route
+              const isDcsRoute = currentRouteName.startsWith('docuss') || currentRouteName === 'tags.intersection';
+              if (isDcsRoute) {
+                document.documentElement.classList.add('dcs2');
                 document.documentElement.classList.add('dcs-map');
               } else {
+                document.documentElement.classList.remove('dcs2');
                 document.documentElement.classList.remove('dcs-map');
               }
               
               // Hide Discourse sidebar on all Docuss pages
               const isSidebarService = container.lookup("service:sidebar");
-              if (isSidebarService && currentRouteName.startsWith('docuss')) {
+              if (isSidebarService && isDcsRoute) {
                 try {
                   // For newer Discourse versions with sidebar service
                   if (typeof isSidebarService.closeSidebar === 'function') {
@@ -183,6 +187,16 @@ export default {
                   }
                 } catch (e) {
                   console.warn("Could not close sidebar:", e);
+                }
+              } else if (isSidebarService && !isDcsRoute) {
+                // Open sidebar when leaving Docuss pages
+                try {
+                  if (typeof isSidebarService.openSidebar === 'function') {
+                    isSidebarService.openSidebar();
+                    console.log("✓ Sidebar opened (non-Docuss route)");
+                  }
+                } catch (e) {
+                  // Sidebar might not have openSidebar method
                 }
               }
             } catch (e) {

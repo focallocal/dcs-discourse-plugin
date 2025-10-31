@@ -3,8 +3,15 @@ import { DcsLayout } from './DcsLayout'
 import User from 'discourse/models/user'
 
 //------------------------------------------------------------------------------
-export function onAfterRender(container) {
+export function onAfterRender(container, routeName = null) {
   const appCtrl = container.lookup('controller:application')
+  
+  // Only add Docuss classes if on a Docuss route or if route is unknown yet
+  // If route is provided and it's not a Docuss route, don't add classes
+  if (routeName && !routeName.startsWith('docuss') && routeName !== 'tags.intersection') {
+    console.log('⚠ Not a Docuss route, skipping Docuss CSS class setup:', routeName)
+    return
+  }
   
   // Add classes to the <html> tag
   let classes = ['dcs2']
