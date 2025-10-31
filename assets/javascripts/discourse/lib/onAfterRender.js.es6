@@ -5,7 +5,13 @@ import User from 'discourse/models/user'
 //------------------------------------------------------------------------------
 export function onAfterRender(container) {
   const appCtrl = container.lookup('controller:application')
-  const router = container.lookup('service:router')
+  const initialRouterService = (() => {
+    try {
+      return container.lookup('service:router')
+    } catch (e) {
+      return null
+    }
+  })()
   
   // NOTE: DO NOT add/remove dcs2 class here!
   // Route may not be ready yet during initial render
@@ -99,8 +105,20 @@ export function onAfterRender(container) {
   if (splitbar) {
     splitbar.addEventListener('click', () => {
       const showRight = !container.dcsLayout.getShowRightQP()
-      if (router?.transitionTo) {
-        router.transitionTo({ queryParams: { showRight } })
+      try {
+        const routerService = initialRouterService?.transitionTo
+          ? initialRouterService
+          : container.lookup?.('service:router')
+        if (routerService?.transitionTo) {
+          routerService.transitionTo({ queryParams: { showRight } })
+          return
+        }
+
+        const legacyRouter = container.lookup?.('router:main')
+        legacyRouter?.transitionTo?.({ queryParams: { showRight } })
+      } catch (e) {
+        // Fallback: swallow errors so the slider still toggles layout locally
+        console.warn('Docuss splitbar transition failed:', e)
       }
     })
   }

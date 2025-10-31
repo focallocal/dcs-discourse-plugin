@@ -83,12 +83,11 @@ html.dcs2[dcs-layout='3'].dcs-wide #dcs-container {
   right: 50%;
 }
 
-/* Override Discourse grid so the right pane fills the Docuss window */
+/* Remove the hidden sidebar gap and add a small inset on Docuss pages */
 html.dcs2 #main-outlet-wrapper {
   display: block !important;
 }
 
-/* Add breathing room between the split bar and Discourse content */
 html.dcs2 #main-outlet {
   padding-left: 5px;
   box-sizing: border-box;

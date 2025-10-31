@@ -25,6 +25,41 @@ export default {
     let dcsIFrame = null;
     let lastUrl = "";
     let shrinkComposer = true;
+    let pendingNavigation = null;
+
+    const routerService = (() => {
+      try {
+        return container.lookup("service:router");
+      } catch (e) {
+        return null;
+      }
+    })();
+
+    const normalizeUrl = (value) => {
+      if (!value) {
+        return "";
+      }
+
+      try {
+        return new URL(value, window.location.origin).href;
+      } catch (e) {
+        return value;
+      }
+    };
+
+    const stripQuery = (value) => {
+      const idx = value.indexOf("?");
+      return idx === -1 ? value : value.slice(0, idx);
+    };
+
+    const resolveRouteName = (data) => {
+      return (
+        data?.currentRouteName ??
+        data?.routeName ??
+        routerService?.currentRouteName ??
+        null
+      );
+    };
 
     withPluginApi("1.2.0", (api) => {
       // Initialize iframe - pass BOTH app and container
@@ -80,6 +115,13 @@ export default {
             } catch (e) {
               console.warn("Initial onDidTransition failed:", e);
             }
+          }
+
+          if (pendingNavigation) {
+            console.log("↻ Processing deferred navigation after onAfterRender");
+            const payload = pendingNavigation;
+            pendingNavigation = null;
+            handlePageChange(payload);
           }
         } catch (e) {
           console.error("onAfterRender failed:", e);
@@ -145,34 +187,48 @@ export default {
       // ========================================
       const handlePageChange = (data) => {
         try {
-          // Extract route name - handle various formats
-          const currentRouteName = data?.currentRouteName || data?.routeName || null;
+          const currentRouteName = resolveRouteName(data);
           
           // Extract URL
-          const url = data?.url || (typeof data === "string" ? data : window.location.href);
+          const rawUrl =
+            data?.url || (typeof data === "string" ? data : window.location.href);
+          const normalizedUrl = normalizeUrl(rawUrl);
           
+          if (!normalizedUrl) {
+            console.log("⚠ No URL provided, returning");
+            return;
+          }
+
+          if (!container.dcsLayout || !dcsIFrame) {
+            console.log("⚠ Docuss not ready yet, deferring navigation", {
+              currentRouteName,
+              rawUrl,
+            });
+            pendingNavigation = {
+              currentRouteName,
+              url: normalizedUrl,
+            };
+            return;
+          }
+
           console.log("handlePageChange called:", { 
             currentRouteName, 
             lastUrl, 
-            newUrl: url, 
-            urlChanged: url !== lastUrl,
+            newUrl: normalizedUrl, 
+            urlChanged: normalizedUrl !== lastUrl,
             hasLayout: !!container.dcsLayout,
             hasDcsIFrame: !!dcsIFrame,
             hasDcsLayout: !!container.dcsLayout
           });
-          
-          if (!url) {
-            console.log("⚠ No URL provided, returning");
-            return;
-          }
-          
-          if (url === lastUrl) {
+
+          if (normalizedUrl === lastUrl) {
             console.log("⚠ URL unchanged, returning");
             return;
           }
 
-          const queryParamsOnly = lastUrl && (url.split("?")[0] === lastUrl.split("?")[0]);
-          lastUrl = url;
+          const queryParamsOnly =
+            lastUrl && stripQuery(normalizedUrl) === stripQuery(lastUrl);
+          lastUrl = normalizedUrl;
 
           const isDocussRoute = currentRouteName?.startsWith('docuss');
           const isTagsIntersection = currentRouteName === 'tags.intersection' ||
