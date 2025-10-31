@@ -161,37 +161,39 @@ export default {
           const queryParamsOnly = lastUrl && (url.split("?")[0] === lastUrl.split("?")[0]);
           lastUrl = url;
 
-          // Only call onDidTransition if we have routeName, dcsIFrame AND dcsLayout is ready
-          if (currentRouteName && dcsIFrame && container.dcsLayout) {
+          // CRITICAL: Check if this is a Docuss route BEFORE doing anything
+          const isDocussRoute = currentRouteName && currentRouteName.startsWith('docuss');
+          const isTagsIntersection = currentRouteName === 'tags.intersection' || 
+                                     (currentRouteName?.startsWith('tags') && url.includes('/intersection/'));
+          const isDcsRoute = isDocussRoute || isTagsIntersection;
+          
+          // Manage dcs2 class based on route
+          if (isDcsRoute) {
+            document.documentElement.classList.add('dcs2');
+            document.documentElement.classList.add('dcs-map');
+          } else {
+            document.documentElement.classList.remove('dcs2');
+            document.documentElement.classList.remove('dcs-map');
+          }
+
+          // Only call onDidTransition if we're on a Docuss route AND have required services
+          if (isDcsRoute && currentRouteName && dcsIFrame && container.dcsLayout) {
             try {
-              console.log("✓ All conditions met, calling onDidTransition for route:", currentRouteName);
+              console.log("✓ All conditions met for Docuss route, calling onDidTransition:", currentRouteName);
               onDidTransition({
                 container,
                 iframe: dcsIFrame,
                 routeName: currentRouteName,
                 queryParamsOnly,
               });
-              
-              // Add dcs2 class if on a Docuss route
-              // Check both route name AND URL pattern to catch tags.intersection routes
-              const isDcsRoute = currentRouteName.startsWith('docuss') || 
-                                currentRouteName === 'tags.intersection' ||
-                                (currentRouteName.startsWith('tags') && window.location.pathname.includes('/intersection/'));
-              if (isDcsRoute) {
-                document.documentElement.classList.add('dcs2');
-                document.documentElement.classList.add('dcs-map');
-              } else {
-                document.documentElement.classList.remove('dcs2');
-                document.documentElement.classList.remove('dcs-map');
-              }
-              
-              // NOTE: Do NOT manipulate sidebar service here
-              // It causes conflicts with Discourse's own sidebar logic and prevents admin pages from working
             } catch (e) {
               console.warn("onDidTransition failed:", e);
             }
+          } else if (!isDcsRoute) {
+            console.log("⚠ Not a Docuss route, skipping onDidTransition:", currentRouteName);
           } else {
             console.log("⚠ Skipping onDidTransition - missing conditions:", {
+              isDcsRoute,
               hasRoute: !!currentRouteName,
               hasIFrame: !!dcsIFrame,
               hasLayout: !!container.dcsLayout,
