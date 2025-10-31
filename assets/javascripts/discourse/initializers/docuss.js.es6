@@ -174,8 +174,23 @@ export default {
           const queryParamsOnly = lastUrl && (url.split("?")[0] === lastUrl.split("?")[0]);
           lastUrl = url;
 
-          // Only call onDidTransition if we have routeName, dcsIFrame AND dcsLayout is ready
-          if (currentRouteName && dcsIFrame && container.dcsLayout) {
+          const isDocussRoute = currentRouteName?.startsWith('docuss');
+          const isTagsIntersection = currentRouteName === 'tags.intersection' ||
+                                     (currentRouteName?.startsWith('tags') && window.location.pathname.includes('/intersection/'));
+          const isTopicRoute = currentRouteName?.startsWith('topic.');
+          const isDcsManagedRoute = isDocussRoute || isTagsIntersection || isTopicRoute;
+          const isAdminRoute = currentRouteName?.startsWith('admin');
+
+          if (isAdminRoute) {
+            document.documentElement.classList.remove('dcs2');
+            document.documentElement.classList.remove('dcs-map');
+            if (container.dcsLayout) {
+              container.dcsLayout.setLayout(1);
+            }
+            return;
+          }
+
+          if (currentRouteName && dcsIFrame && container.dcsLayout && isDcsManagedRoute) {
             try {
               console.log("✓ All conditions met, calling onDidTransition for route:", currentRouteName);
               onDidTransition({
@@ -184,45 +199,13 @@ export default {
                 routeName: currentRouteName,
                 queryParamsOnly,
               });
-              
-              // Add dcs2 class if on a Docuss route
-              // Check both route name AND URL pattern to catch tags.intersection routes
-              const isDcsRoute = currentRouteName.startsWith('docuss') || 
-                                currentRouteName === 'tags.intersection' ||
-                                (currentRouteName.startsWith('tags') && window.location.pathname.includes('/intersection/'));
-              if (isDcsRoute) {
+
+              if (isDocussRoute || isTagsIntersection) {
                 document.documentElement.classList.add('dcs2');
                 document.documentElement.classList.add('dcs-map');
               } else {
                 document.documentElement.classList.remove('dcs2');
                 document.documentElement.classList.remove('dcs-map');
-              }
-              
-              // Hide Discourse sidebar on all Docuss pages
-              const isSidebarService = container.lookup("service:sidebar");
-              if (isSidebarService && isDcsRoute) {
-                try {
-                  // For newer Discourse versions with sidebar service
-                  if (typeof isSidebarService.closeSidebar === 'function') {
-                    isSidebarService.closeSidebar();
-                    console.log("✓ Sidebar closed for docuss route");
-                  } else if (isSidebarService.toggleSidebar && typeof isSidebarService.toggleSidebar === 'function') {
-                    // Some versions use toggleSidebar
-                    isSidebarService.toggleSidebar();
-                  }
-                } catch (e) {
-                  console.warn("Could not close sidebar:", e);
-                }
-              } else if (isSidebarService && !isDcsRoute) {
-                // Open sidebar when leaving Docuss pages
-                try {
-                  if (typeof isSidebarService.openSidebar === 'function') {
-                    isSidebarService.openSidebar();
-                    console.log("✓ Sidebar opened (non-Docuss route)");
-                  }
-                } catch (e) {
-                  // Sidebar might not have openSidebar method
-                }
               }
             } catch (e) {
               console.warn("onDidTransition failed:", e);
@@ -232,7 +215,13 @@ export default {
               hasRoute: !!currentRouteName,
               hasIFrame: !!dcsIFrame,
               hasLayout: !!container.dcsLayout,
+              isDcsManagedRoute,
             });
+            document.documentElement.classList.remove('dcs2');
+            document.documentElement.classList.remove('dcs-map');
+            if (container.dcsLayout) {
+              container.dcsLayout.setLayout(1);
+            }
           }
 
           // Shrink composer on page change - with better error handling
