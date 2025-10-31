@@ -516,34 +516,3 @@ html.dcs2 .sidebar-toggle-button {
 html.dcs2 footer.topic-list-bottom .sidebar-footer-toggle {
   display: none;
 }
-
-/*******************************************************************************
-	Style Navigation Links as Buttons (Tasks, Media, Stories)
-*******************************************************************************/
-
-/* Target navigation links in the iframe and style as buttons */
-#dcs-left a {
-  /* Make them 3x bigger */
-  font-size: 1.3rem;
-  padding: 0.75rem 1.5rem;
-  display: inline-block;
-  margin: 0.5rem;
-  
-  /* Match Edit button styling */
-  background-color: #0088cc;
-  color: #ffffff;
-  border-radius: 4px;
-  border: 1px solid #0077b3;
-  text-decoration: none;
-  font-weight: 500;
-  transition: background-color 0.2s ease;
-  cursor: pointer;
-}
-
-#dcs-left a:hover {
-  background-color: #0077b3;
-}
-
-#dcs-left a:active {
-  background-color: #006699;
-}
