@@ -108,7 +108,7 @@ html.dcs2[dcs-layout='3']:not(.dcs-wide) #dcs-left {
 
 html.dcs2 #dcs-splitbar {
   flex: 0 0 23px;
-  background-color: #08ea79;
+  background-color: #00a955;
   flex-direction: column;
   cursor: pointer;
   display: none;
@@ -165,7 +165,7 @@ html.dcs2 #dcs-ghost .dcs-ghost-splitbar {
   left: 0;
   bottom: 0;
   width: 23px;
-  background-color: #08ea79;
+  background-color: #00a955;
 }
 
 /*******************************************************************************
@@ -248,6 +248,9 @@ html.dcs2.dcs-disable-cats th.category {
 }
 
 html.dcs2.dcs-disable-cats a.badge-category,
+html.dcs2.dcs-disable-cats .badge-category__wrapper,
+html.dcs2.dcs-disable-cats .badge-category,
+html.dcs2.dcs-disable-cats .badge-category__name,
 html.dcs2.dcs-disable-cats ul.category-links,
 html.dcs2.dcs-disable-cats ul.category-links + hr,
 html.dcs2.dcs-disable-cats div.category-input,
@@ -268,8 +271,9 @@ html.dcs2.dcs-disable-cats td.category {
   display: none;
 }
 
-/* Hide category badge wrapper in list views */
-html.dcs2.dcs-disable-cats a.badge-category_wrapper {
+/* Hide category badge wrapper and badges in list views */
+html.dcs2.dcs-disable-cats a.badge-category_wrapper,
+html.dcs2.dcs-disable-cats a.badge-category__wrapper {
   display: none;
 }
 
@@ -511,4 +515,35 @@ html.dcs2 .sidebar-toggle-button {
 
 html.dcs2 footer.topic-list-bottom .sidebar-footer-toggle {
   display: none;
+}
+
+/*******************************************************************************
+	Style Navigation Links as Buttons (Tasks, Media, Stories)
+*******************************************************************************/
+
+/* Target navigation links in the iframe and style as buttons */
+#dcs-left a {
+  /* Make them 3x bigger */
+  font-size: 1.3rem;
+  padding: 0.75rem 1.5rem;
+  display: inline-block;
+  margin: 0.5rem;
+  
+  /* Match Edit button styling */
+  background-color: #0088cc;
+  color: #ffffff;
+  border-radius: 4px;
+  border: 1px solid #0077b3;
+  text-decoration: none;
+  font-weight: 500;
+  transition: background-color 0.2s ease;
+  cursor: pointer;
+}
+
+#dcs-left a:hover {
+  background-color: #0077b3;
+}
+
+#dcs-left a:active {
+  background-color: #006699;
 }
