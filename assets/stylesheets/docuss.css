@@ -169,42 +169,26 @@ html.dcs2 #dcs-ghost .dcs-ghost-splitbar {
 }
 
 /*******************************************************************************
-	Hide Docuss Tags
+	Hide Docuss Tags (ALWAYS on Docuss pages - shown only in debug mode with Alt+A)
 *******************************************************************************/
 
-/* Hide all dcs tags in tag filter dropdown */
-html.dcs2 li[data-name^='dcs-'] {
-  display: none;
-}
-
-/* Show dcs tags when in debug mode */
-html.dcs2.dcs-debug li[data-name^='dcs-'] {
-  display: block;
-}
-
-/* Hide all dcs tags in tag chooser */
+/* Hide all dcs tags everywhere by default on Docuss pages */
+html.dcs2 li[data-name^='dcs-'],
 html.dcs2 .mini-tag-chooser > div[data-name^='dcs-'] > span,
-html.dcs2 .mini-tag-chooser .selected-tag[data-value^='dcs-'] {
-  display: none;
-}
-
-/* Show dcs tags in tag chooser when in debug mode */
-html.dcs2.dcs-debug .mini-tag-chooser > div[data-name^='dcs-'] > span,
-html.dcs2.dcs-debug .mini-tag-chooser .selected-tag[data-value^='dcs-'] {
-  display: inline;
-}
-
-/* Hide all dcs tags everywhere else */
+html.dcs2 .mini-tag-chooser .selected-tag[data-value^='dcs-'],
 html.dcs2 a.discourse-tag[data-tag-name^='dcs-'] {
   display: none;
 }
 
-/* Show dcs tags everywhere else when in debug mode */
+/* Show all dcs tags when in debug mode */
+html.dcs2.dcs-debug li[data-name^='dcs-'],
+html.dcs2.dcs-debug .mini-tag-chooser > div[data-name^='dcs-'] > span,
+html.dcs2.dcs-debug .mini-tag-chooser .selected-tag[data-value^='dcs-'],
 html.dcs2.dcs-debug a.discourse-tag[data-tag-name^='dcs-'] {
   display: inline-block;
 }
 
-/* Hide all regular tags in topic list and pages */
+/* Hide all regular tags everywhere by default on Docuss pages */
 html.dcs2 .topic-tags,
 html.dcs2 .tags-container,
 html.dcs2 .tag-box {
@@ -218,7 +202,7 @@ html.dcs2.dcs-debug .tag-box {
   display: block;
 }
 
-/* Hide tags input in composer */
+/* Hide tags input in composer by default on Docuss pages */
 html.dcs2 div.tags-input {
   display: none;
 }
@@ -229,24 +213,42 @@ html.dcs2.dcs-debug div.tags-input {
 }
 
 /*******************************************************************************
-	Hide categories (setting option)
-
-	Unfortunately, removing the category column entirely is not possible, because 
-	of this: https://meta.discourse.org/t/disabling-categories/12350/6?u=jack2
+	Hide categories (ALWAYS - shown only in debug mode with Alt+A)
 *******************************************************************************/
 
-/* Hide the category column title
-Don't use visibility:hidden here, or it will  hide borders also. In admin mode,
-where there are categories (Staff, Lounge), this would create a hole in 
-the table's header */
-html.dcs2.dcs-disable-cats th.category {
-  /* The following line is better than opacity:0, because it reduces the column
-	width. Beware: the !important is important for the tag topic list */
-  font-size: 0pt !important;
-  pointer-events: none;
-  cursor: default;
+/* Hide category badges everywhere by default ON DOCUSS PAGES ONLY */
+html.dcs2 a.badge-category__wrapper,
+html.dcs2 a.badge-category_wrapper,
+html.dcs2 a.badge-category,
+html.dcs2 .badge-category__wrapper,
+html.dcs2 .badge-category__name,
+html.dcs2 .badge-category {
+  display: none;
 }
 
+/* Show category badges when in debug mode ON DOCUSS PAGES */
+html.dcs2.dcs-debug a.badge-category__wrapper,
+html.dcs2.dcs-debug a.badge-category_wrapper,
+html.dcs2.dcs-debug a.badge-category,
+html.dcs2.dcs-debug .badge-category__wrapper,
+html.dcs2.dcs-debug .badge-category__name,
+html.dcs2.dcs-debug .badge-category {
+  display: inline-block;
+}
+
+/* Hide category column in topic list ON DOCUSS PAGES */
+html.dcs2 th.category,
+html.dcs2 td.category {
+  display: none;
+}
+
+/* Show category column when in debug mode ON DOCUSS PAGES */
+html.dcs2.dcs-debug th.category,
+html.dcs2.dcs-debug td.category {
+  display: table-cell;
+}
+
+/* Legacy rules for dcs-disable-cats class for backwards compatibility */
 html.dcs2.dcs-disable-cats a.badge-category,
 html.dcs2.dcs-disable-cats .badge-category__wrapper,
 html.dcs2.dcs-disable-cats .badge-category,
