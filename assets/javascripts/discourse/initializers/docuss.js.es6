@@ -48,7 +48,12 @@ export default {
           
           // CRITICAL: Set dcs2/dcs-map classes based on initial route BEFORE calling onDidTransition
           // This ensures the correct classes are present from the start
-          const isDcsRoute = currentRouteName && (currentRouteName.startsWith('docuss') || currentRouteName === 'tags.intersection');
+          // Check both route name AND URL pattern to catch tags.intersection routes
+          const isDcsRoute = currentRouteName && (
+            currentRouteName.startsWith('docuss') || 
+            currentRouteName === 'tags.intersection' ||
+            (currentRouteName.startsWith('tags') && window.location.pathname.includes('/intersection/'))
+          );
           if (isDcsRoute) {
             console.log("✓ Initial route is Docuss - adding dcs2 class");
             document.documentElement.classList.add('dcs2');
@@ -176,7 +181,10 @@ export default {
               });
               
               // Add dcs2 class if on a Docuss route
-              const isDcsRoute = currentRouteName.startsWith('docuss') || currentRouteName === 'tags.intersection';
+              // Check both route name AND URL pattern to catch tags.intersection routes
+              const isDcsRoute = currentRouteName.startsWith('docuss') || 
+                                currentRouteName === 'tags.intersection' ||
+                                (currentRouteName.startsWith('tags') && window.location.pathname.includes('/intersection/'));
               if (isDcsRoute) {
                 document.documentElement.classList.add('dcs2');
                 document.documentElement.classList.add('dcs-map');

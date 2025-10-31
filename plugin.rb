@@ -1,6 +1,6 @@
 # name: docuss
 # about: Docuss plugin for Discourse
-# version: 1.0.32
+# version: 1.0.33-tag-intersection-fix
 # authors: Sylvain Quendez
 # url: https://github.com/sylque/dcs-discourse-plugin
 
