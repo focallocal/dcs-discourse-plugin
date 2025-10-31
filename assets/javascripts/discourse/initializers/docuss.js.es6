@@ -44,27 +44,32 @@ export default {
           // Trigger initial transition after layout is ready
           const router = container.lookup("service:router");
           const currentRouteName = router?.currentRouteName;
-          console.log("Initial route:", currentRouteName);
+          const currentUrl = window.location.pathname;
+          console.log("Initial route:", currentRouteName, "URL:", currentUrl);
           
-          // CRITICAL: Set dcs2/dcs-map classes based on initial route BEFORE calling onDidTransition
-          // This ensures the correct classes are present from the start
-          // Check both route name AND URL pattern to catch tags.intersection routes
-          const isDcsRoute = currentRouteName && (
-            currentRouteName.startsWith('docuss') || 
-            currentRouteName === 'tags.intersection' ||
-            (currentRouteName.startsWith('tags') && window.location.pathname.includes('/intersection/'))
-          );
+          // CRITICAL: Determine if we're on a Docuss route
+          // Check multiple conditions to be absolutely sure
+          const isDocussRoute = currentRouteName && currentRouteName.startsWith('docuss');
+          const isTagsIntersection = currentRouteName === 'tags.intersection' || 
+                                     (currentRouteName?.startsWith('tags') && currentUrl.includes('/intersection/'));
+          const isDcsRoute = isDocussRoute || isTagsIntersection;
+          
+          console.log("Route detection:", { isDocussRoute, isTagsIntersection, isDcsRoute, currentRouteName, currentUrl });
+          
           if (isDcsRoute) {
-            console.log("✓ Initial route is Docuss - adding dcs2 class");
+            console.log("✓ Initial route IS Docuss - adding dcs2 class");
+            document.documentElement.classList.remove('dcs-enable-default');
             document.documentElement.classList.add('dcs2');
             document.documentElement.classList.add('dcs-map');
           } else {
-            console.log("✓ Initial route is NOT Docuss - removing dcs2 class");
+            console.log("✓ Initial route is NOT Docuss - explicitly removing dcs2 class");
+            // Explicitly remove to ensure it's not there
             document.documentElement.classList.remove('dcs2');
             document.documentElement.classList.remove('dcs-map');
+            document.documentElement.classList.remove('dcs-enable-default');
           }
           
-          if (currentRouteName && dcsIFrame && container.dcsLayout) {
+          if (currentRouteName && dcsIFrame && container.dcsLayout && isDcsRoute) {
             try {
               onDidTransition({
                 container,
