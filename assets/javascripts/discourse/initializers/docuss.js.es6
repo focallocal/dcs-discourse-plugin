@@ -54,17 +54,6 @@ export default {
           
           console.log("Initial route:", currentRouteName, "isDcsRoute:", isDcsRoute);
           
-          // Manage dcs2 class on initial load
-          if (isDcsRoute) {
-            console.log("✓ Initial route IS Docuss - adding dcs2 class");
-            document.documentElement.classList.add('dcs2');
-            document.documentElement.classList.add('dcs-map');
-          } else {
-            console.log("✓ Initial route is NOT Docuss - removing dcs2 class");
-            document.documentElement.classList.remove('dcs2');
-            document.documentElement.classList.remove('dcs-map');
-          }
-          
           // Only proceed with Docuss initialization if on a Docuss route
           if (isDcsRoute && currentRouteName && dcsIFrame && container.dcsLayout) {
             try {

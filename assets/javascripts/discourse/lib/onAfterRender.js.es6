@@ -5,9 +5,43 @@ import User from 'discourse/models/user'
 //------------------------------------------------------------------------------
 export function onAfterRender(container) {
   const appCtrl = container.lookup('controller:application')
+  const router = container.lookup('service:router')
+  const currentRouteName = router?.currentRouteName
   
-  // Add Docuss-specific setting classes (not route-dependent)
-  let classes = []
+  // CRITICAL: Only set up Docuss DOM on actual Docuss routes
+  // Check if this is a Docuss route
+  const isDocussRoute = currentRouteName && currentRouteName.startsWith('docuss')
+  const isTagsIntersection = currentRouteName === 'tags.intersection' || 
+                             (currentRouteName?.startsWith('tags') && window.location.pathname.includes('/intersection/'))
+  const isDcsRoute = isDocussRoute || isTagsIntersection
+  
+  console.log('🔧 onAfterRender - Route:', currentRouteName, 'isDcsRoute:', isDcsRoute)
+  
+  // If NOT on a Docuss route, only add setting classes and return early
+  if (!isDcsRoute) {
+    console.log('⚠️ Not a Docuss route, skipping DOM creation')
+    let classes = []
+    if (appCtrl.siteSettings['docuss_hide_sugg_topics']) {
+      classes.push('dcs-disable-sugg')
+    }
+    if (appCtrl.siteSettings['docuss_hide_categories']) {
+      classes.push('dcs-disable-cats')
+    }
+    if (appCtrl.siteSettings['docuss_hide_hamburger_menu']) {
+      classes.push('dcs-no-ham-menu')
+    }
+    if (appCtrl.siteSettings['docuss_hide_tags']) {
+      classes.push('dcs-hide-tags')
+    }
+    document.documentElement.classList.add(...classes)
+    return // EXIT: Don't create Docuss DOM on non-Docuss pages
+  }
+  
+  // ===== ONLY REACHED ON DOCUSS ROUTES =====
+  console.log('✓ On Docuss route, creating Docuss DOM')
+  
+  // Add classes to the <html> tag
+  let classes = ['dcs2', 'dcs-map']
   
   if (appCtrl.siteSettings['docuss_hide_sugg_topics']) {
     classes.push('dcs-disable-sugg')
