@@ -160,6 +160,14 @@ export class DcsLayout {
     // this.appCtrl.site.set('mobileView', forceMobileView)
 
     this.prevLayout = layout
+
+    if (layout === 1) {
+      html.classList.remove('dcs2')
+      html.classList.remove('dcs-map')
+    } else {
+      html.classList.add('dcs2')
+      html.classList.add('dcs-map')
+    }
   }
 }
 

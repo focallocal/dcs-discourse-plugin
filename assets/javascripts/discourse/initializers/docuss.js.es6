@@ -267,8 +267,6 @@ export default {
           const isAdminRoute = routeName?.startsWith('admin') || normalizedPath.startsWith('/admin');
 
           if (isAdminRoute) {
-            document.documentElement.classList.remove('dcs2');
-            document.documentElement.classList.remove('dcs-map');
             if (container.dcsLayout) {
               container.dcsLayout.setLayout(1);
             }
@@ -285,13 +283,35 @@ export default {
                 queryParamsOnly,
               });
 
-              if (isDocussRoute || isTagsIntersection) {
-                document.documentElement.classList.add('dcs2');
-                document.documentElement.classList.add('dcs-map');
-              } else {
-                document.documentElement.classList.remove('dcs2');
-                document.documentElement.classList.remove('dcs-map');
-              }
+                const sidebarService = container.lookup("service:sidebar");
+                if (sidebarService) {
+                  const iframeLayout = dcsIFrame?.currentRoute?.layout;
+                  const shouldCloseSidebar =
+                    iframeLayout !== undefined
+                      ? iframeLayout !== 1
+                      : (isDocussRoute || isTagsIntersection || isTopicRoute);
+
+                  if (shouldCloseSidebar) {
+                    try {
+                      if (typeof sidebarService.closeSidebar === 'function') {
+                        sidebarService.closeSidebar();
+                        console.log("✓ Sidebar closed for Docuss layout");
+                      } else if (typeof sidebarService.toggleSidebar === 'function') {
+                        sidebarService.toggleSidebar();
+                      }
+                    } catch (sidebarError) {
+                      console.warn("Could not close sidebar:", sidebarError);
+                    }
+                  } else if (typeof sidebarService.openSidebar === 'function') {
+                    try {
+                      sidebarService.openSidebar();
+                      console.log("✓ Sidebar opened (non-Docuss layout)");
+                    } catch (sidebarError) {
+                      // No-op if sidebar service cannot open
+                    }
+                  }
+                }
+
             } catch (e) {
               console.warn("onDidTransition failed:", e);
             }
@@ -302,8 +322,6 @@ export default {
               hasLayout: !!container.dcsLayout,
               isDcsManagedRoute,
             });
-            document.documentElement.classList.remove('dcs2');
-            document.documentElement.classList.remove('dcs-map');
             if (container.dcsLayout) {
               container.dcsLayout.setLayout(1);
             }
