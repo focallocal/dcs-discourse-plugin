@@ -283,34 +283,34 @@ export default {
                 queryParamsOnly,
               });
 
-                const sidebarService = container.lookup("service:sidebar");
-                if (sidebarService) {
-                  const iframeLayout = dcsIFrame?.currentRoute?.layout;
-                  const shouldCloseSidebar =
-                    iframeLayout !== undefined
-                      ? iframeLayout !== 1
-                      : (isDocussRoute || isTagsIntersection || isTopicRoute);
+              const sidebarService = container.lookup("service:sidebar");
+              if (sidebarService) {
+                const iframeLayout = dcsIFrame?.currentRoute?.layout;
+                const shouldCloseSidebar =
+                  iframeLayout !== undefined
+                    ? iframeLayout !== 1
+                    : (isDocussRoute || isTagsIntersection || isTopicRoute);
 
-                  if (shouldCloseSidebar) {
-                    try {
-                      if (typeof sidebarService.closeSidebar === 'function') {
-                        sidebarService.closeSidebar();
-                        console.log("✓ Sidebar closed for Docuss layout");
-                      } else if (typeof sidebarService.toggleSidebar === 'function') {
-                        sidebarService.toggleSidebar();
-                      }
-                    } catch (sidebarError) {
-                      console.warn("Could not close sidebar:", sidebarError);
+                if (shouldCloseSidebar) {
+                  try {
+                    if (typeof sidebarService.closeSidebar === 'function') {
+                      sidebarService.closeSidebar();
+                      console.log("✓ Sidebar closed for Docuss layout");
+                    } else if (typeof sidebarService.toggleSidebar === 'function') {
+                      sidebarService.toggleSidebar();
                     }
-                  } else if (typeof sidebarService.openSidebar === 'function') {
-                    try {
-                      sidebarService.openSidebar();
-                      console.log("✓ Sidebar opened (non-Docuss layout)");
-                    } catch (sidebarError) {
-                      // No-op if sidebar service cannot open
-                    }
+                  } catch (sidebarError) {
+                    console.warn("Could not close sidebar:", sidebarError);
+                  }
+                } else if (typeof sidebarService.openSidebar === 'function') {
+                  try {
+                    sidebarService.openSidebar();
+                    console.log("✓ Sidebar opened (non-Docuss layout)");
+                  } catch (sidebarError) {
+                    // No-op if sidebar service cannot open
                   }
                 }
+              }
 
             } catch (e) {
               console.warn("onDidTransition failed:", e);
