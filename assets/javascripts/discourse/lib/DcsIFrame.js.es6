@@ -856,22 +856,36 @@ export class DcsIFrame {
 			catId = cat['id']
 		}
 
+		const targetLevel =
+			tagNotificationLevel === undefined
+				? NotificationLevels.WATCHING
+				: tagNotificationLevel
+
+		const shouldSetTopicNotifications =
+			targetLevel !== undefined &&
+			targetLevel !== NotificationLevels.REGULAR
+
 		// Create the topic
 		discourseAPI.newTopic({ title, body, catId, tags }).then(
 			() => {
-				// Set tag notification level
-				if (tagNotificationLevel !== undefined && tagNotificationLevel !== 1) {
-					discourseAPI
-						.setTagNotification({
-							tag,
-							notificationLevel: tagNotificationLevel
-						})
-						.catch(e => {
-							u.logError(
-								`Failed to set the notification level for tag: ${tag} (${e})`
-							)
-						})
+				if (!shouldSetTopicNotifications) {
+					return
 				}
+
+				const notificationTags = ['dcs-discuss', tag]
+				Promise.all(
+					notificationTags.map(notificationTag =>
+						discourseAPI.setTagNotification({
+							tag: notificationTag,
+							notificationLevel: targetLevel
+						})
+					)
+				)
+					.catch(e => {
+						u.logError(
+							`Failed to set the notification level for tags ${notificationTags.join(', ')}: ${e}`
+						)
+					})
 			},
 			e => {
 				const tagsStr = JSON.stringify(tags)

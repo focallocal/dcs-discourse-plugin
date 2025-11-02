@@ -429,7 +429,7 @@ export default {
             // ========================================
             // Handle DcsTag Navigation
             // ========================================
-            if (dcsTag) {
+            if (dcsTag && !model.__dcsNavigatedToTag) {
               let path;
               
               if (model.topic) {
@@ -455,6 +455,8 @@ export default {
               } catch (e) {
                 console.warn("Failed to navigate:", e);
               }
+
+              model.__dcsNavigatedToTag = true;
             }
 
             // ========================================
