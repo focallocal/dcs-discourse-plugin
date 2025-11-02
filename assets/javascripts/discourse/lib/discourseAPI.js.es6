@@ -7,12 +7,24 @@ export const discourseAPI = {
 
 	_request({ method, path, params = undefined, moreHeaders = {} }) {
 		return new Promise((resolve, reject) => {
+			const csrfToken = document
+				.querySelector("meta[name='csrf-token']")
+				?.getAttribute('content')
+
+			const headers = {
+				'Content-Type': 'application/json',
+				...moreHeaders
+			}
+
+			if (csrfToken) {
+				headers['X-CSRF-Token'] = csrfToken
+			}
+			headers['X-Requested-With'] = 'XMLHttpRequest'
+
 			const options = {
 				method: method,
-				headers: {
-					'Content-Type': 'application/json',
-					...moreHeaders
-				}
+				headers,
+				credentials: 'same-origin'
 			}
 
 			if (params && (method === 'POST' || method === 'PUT')) {
@@ -26,12 +38,26 @@ export const discourseAPI = {
 							reject(text || `HTTP ${response.status}: ${response.statusText}`)
 						})
 					}
+					if (response.status === 204) {
+						return null
+					}
+					const contentType = response.headers.get('content-type') || ''
+					if (!contentType.includes('application/json')) {
+						return response.text().then(text => {
+							if (!text) {
+								return null
+							}
+							try {
+								return JSON.parse(text)
+							} catch (e) {
+								throw `Failed to parse response for ${path}: ${e}`
+							}
+						})
+					}
 					return response.json()
 				})
 				.then(data => {
-					if (data) {
-						resolve(data)
-					}
+					resolve(data)
 				})
 				.catch(error => {
 					reject(error.message || error)

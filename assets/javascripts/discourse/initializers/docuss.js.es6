@@ -447,7 +447,10 @@ export default {
               try {
                 const router = container.lookup("service:router");
                 if (router?.transitionTo) {
-                  router.transitionTo(path);
+                  const currentUrl = router.currentURL || `${window.location.pathname}${window.location.search}`;
+                  if (currentUrl !== path) {
+                    router.transitionTo(path);
+                  }
                 }
               } catch (e) {
                 console.warn("Failed to navigate:", e);
