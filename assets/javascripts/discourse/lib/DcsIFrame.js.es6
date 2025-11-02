@@ -842,19 +842,44 @@ export class DcsIFrame {
 
 		// Create the topic
 		discourseAPI.newTopic({ title, body, catId, tags }).then(
-			() => {
-				// Set tag notification level
+			topic => {
+				// Promote notifications for the creator so they follow the discussion thread
 				if (tagNotificationLevel !== undefined && tagNotificationLevel !== 1) {
-					discourseAPI
-						.setTagNotification({
-							tag,
-							notificationLevel: tagNotificationLevel
-						})
-						.catch(e => {
-							u.logError(
-								`Failed to set the notification level for tag: ${tag} (${e})`
-							)
-						})
+					const followupCalls = []
+
+					followupCalls.push(
+						discourseAPI
+							.setTagNotification({
+								tag,
+								notificationLevel: tagNotificationLevel
+							})
+							.catch(e => {
+								u.logError(
+									`Failed to set the notification level for tag: ${tag} (${e})`
+								)
+							})
+					)
+
+					if (topic && topic['topic_id']) {
+						followupCalls.push(
+							discourseAPI
+								.setTopicNotification({
+									topicId: topic['topic_id'],
+									notificationLevel: tagNotificationLevel
+								})
+								.catch(e => {
+									u.logError(
+										`Failed to set the notification level for topic ${topic['topic_id']}: ${e}`
+									)
+								})
+						)
+					} else {
+						u.logError('New topic missing topic_id; skip topic notification setup')
+					}
+
+					if (followupCalls.length) {
+						return Promise.all(followupCalls)
+					}
 				}
 			},
 			e => {
