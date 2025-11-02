@@ -34,9 +34,6 @@ html.dcs2[dcs-layout='2'] #dcs-right {
 }
 
 html.dcs2[dcs-layout='3'] #dcs-right {
-  padding-left: 23px;
-}
-html.dcs2[dcs-layout='3'].dcs-wide #dcs-right {
   padding-left: 50%;
 }
 
@@ -77,9 +74,6 @@ html.dcs2[dcs-layout='1'] #dcs-container {
 
 /* For layout 3 */
 html.dcs2[dcs-layout='3'] #dcs-container {
-  right: calc(100% - 23px);
-}
-html.dcs2[dcs-layout='3'].dcs-wide #dcs-container {
   right: 50%;
 }
 
@@ -91,6 +85,16 @@ html.dcs2 #main-outlet-wrapper {
 html.dcs2 #main-outlet {
   padding-left: 5px;
   box-sizing: border-box;
+}
+
+/* Ensure Discourse content spans available width when Docuss is active */
+html.dcs2 #main-outlet-wrapper.wrap,
+html.dcs2 #main-outlet .container.list-container.--topic-list,
+html.dcs2 #main-outlet #main-container.container {
+  max-width: none;
+  width: 100%;
+  margin-left: 0;
+  margin-right: 0;
 }
 
 /*******************************************************************************
@@ -122,8 +126,18 @@ html.dcs2 #dcs-left {
   overflow: hidden;
 }
 
-html.dcs2[dcs-layout='3']:not(.dcs-wide) #dcs-left {
-  display: none;
+@media (max-width: 1034px) {
+  html.dcs2[dcs-layout='3'] #dcs-right {
+    padding-left: 23px;
+  }
+
+  html.dcs2[dcs-layout='3'] #dcs-container {
+    right: calc(100% - 23px);
+  }
+
+  html.dcs2[dcs-layout='3'] #dcs-left {
+    display: none;
+  }
 }
 
 /*******************************************************************************
