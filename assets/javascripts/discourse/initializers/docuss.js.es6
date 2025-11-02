@@ -406,27 +406,6 @@ export default {
             const dcsTag = tags.find((t) => DcsTag.parse?.(t));
 
             // ========================================
-            // Auto-select Hidden Category
-            // ========================================
-            const categoryId = model.categoryId || model.get?.("categoryId");
-            const action = model.action || model.get?.("action");
-            
-            if (!categoryId && action === Composer.CREATE_TOPIC) {
-              try {
-                const appCtrl = container.lookup("controller:application");
-                const hiddenCategory = appCtrl?.site?.categories?.find(
-                  (c) => c.name?.toLowerCase() === "hidden"
-                );
-                
-                if (hiddenCategory) {
-                  model.categoryId = hiddenCategory.id;
-                }
-              } catch (e) {
-                console.warn("Failed to set hidden category:", e);
-              }
-            }
-
-            // ========================================
             // Handle DcsTag Navigation
             // ========================================
             if (dcsTag && !model.__dcsNavigatedToTag) {
@@ -443,7 +422,8 @@ export default {
               }
 
               shrinkComposer = false;
-              
+              model.__dcsNavigatedToTag = true;
+
               try {
                 const router = container.lookup("service:router");
                 if (router?.transitionTo) {
@@ -455,8 +435,6 @@ export default {
               } catch (e) {
                 console.warn("Failed to navigate:", e);
               }
-
-              model.__dcsNavigatedToTag = true;
             }
 
             // ========================================
@@ -492,6 +470,18 @@ export default {
 
       // Alt+A toggle is already handled in onAfterRender.js
       // It toggles the dcs-debug class which controls tag/category visibility via CSS
+
+      api.onAppEvent("composer:closed", () => {
+        try {
+          const composerCtrl = container.lookup("controller:composer");
+          const model = composerCtrl?.model;
+          if (model && model.__dcsNavigatedToTag) {
+            delete model.__dcsNavigatedToTag;
+          }
+        } catch (e) {
+          console.warn("Failed to reset Docuss composer state:", e);
+        }
+      });
     });
   },
 };

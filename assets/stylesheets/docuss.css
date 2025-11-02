@@ -102,11 +102,19 @@ html.dcs2 #main-outlet {
   box-sizing: border-box;
 }
 
+html.dcs2[dcs-layout='3'] #main-outlet {
+  padding-left: 18px;
+}
+
 html.dcs2 #reply-control {
   max-width: none;
   width: 100%;
   margin-right: 0;
   padding-right: 12px;
+}
+
+html.dcs2[dcs-layout='3'] #reply-control {
+  padding-left: 18px;
 }
 
 /* Ensure Discourse content spans available width when Docuss is active */
