@@ -625,13 +625,43 @@ export class DcsIFrame {
 		// setRouteProps message arrives
 		const layout = this.currentRoute?.layout
 		const docussLayoutActive = layout === 2 || layout === 3
+		const appCtrl = this.container.lookup('controller:application')
+		let resolvedCategory = null
+		let resolvedCategoryId = null
+
+		if (category && appCtrl?.site?.categories) {
+			resolvedCategory = appCtrl.site.categories.find(c => {
+				if (!c) {
+					return false
+				}
+				const candidateName = c['name']
+				const candidateSlug = c['slug']
+				const candidateId = c['id']
+				return (
+					candidateName === category ||
+					candidateSlug === category ||
+					String(candidateId) === String(category)
+				)
+			})
+
+			if (resolvedCategory) {
+				resolvedCategoryId = resolvedCategory.id
+				this.container.docussPendingCategory = resolvedCategory
+				this.container.docussPendingCategoryId = resolvedCategoryId
+			}
+		}
+
 		if (!docussLayoutActive) {
 			console.debug('[Docuss] onSetRouteProps skipped', {
 				reason: 'layout-not-split',
 				currentRoute: this.currentRoute,
-				incomingCategory: category
+				incomingCategory: category,
+				resolvedCategoryId
 			})
 			this.container.isDocussActive = false
+			if (category && !resolvedCategory) {
+				u.logError(`Category "${category}" not found in Discourse`)
+			}
 			return
 		}
 
@@ -639,6 +669,7 @@ export class DcsIFrame {
 		console.debug('[Docuss] onSetRouteProps accepted', {
 			layout,
 			incomingCategory: category,
+			resolvedCategoryId,
 			currentRoute: this.currentRoute
 		})
 
@@ -722,33 +753,17 @@ export class DcsIFrame {
 		}
 
 		// Set category
-		if (category) {
-			const appCtrl = this.container.lookup('controller:application')
-			const cat = appCtrl?.site?.categories?.find(c => {
-				if (!c) {
-					return false
-				}
-				const candidateName = c['name']
-				const candidateSlug = c['slug']
-				const candidateId = c['id']
-				return (
-					candidateName === category ||
-					candidateSlug === category ||
-					String(candidateId) === String(category)
-				)
-			})
-
-			if (cat) {
+		if (resolvedCategory) {
 				const applyCategoryToController = controller => {
 					if (!controller) {
 						return false
 					}
 					try {
 						if (typeof controller.set === 'function') {
-							controller.set('category', cat)
+							controller.set('category', resolvedCategory)
 							controller.set('canCreateTopicOnCategory', true)
 						} else {
-							controller.category = cat
+							controller.category = resolvedCategory
 							controller.canCreateTopicOnCategory = true
 						}
 						return true
@@ -761,22 +776,20 @@ export class DcsIFrame {
 				applyCategoryToController(this.container.lookup('controller:tags-show'))
 				applyCategoryToController(this.container.lookup('controller:tag-show'))
 				applyCategoryToController(this.container.lookup('controller:tags'))
-				this.container.docussPendingCategory = cat
-				this.container.docussPendingCategoryId = cat.id
 
 				try {
 					const composerCtrl = this.container.lookup('controller:composer')
 					const composerModel = composerCtrl?.model
 					if (composerModel) {
 						if (typeof composerModel.set === 'function') {
-							composerModel.set('category', cat)
-							composerModel.set('categoryId', cat.id)
+							composerModel.set('category', resolvedCategory)
+							composerModel.set('categoryId', resolvedCategoryId)
 						} else {
-							composerModel.category = cat
-							composerModel.categoryId = cat.id
+							composerModel.category = resolvedCategory
+							composerModel.categoryId = resolvedCategoryId
 						}
 						if (composerCtrl?.setProperties) {
-							composerCtrl.setProperties({ categoryId: cat.id })
+							composerCtrl.setProperties({ categoryId: resolvedCategoryId })
 						}
 					}
 				} catch (composerError) {
@@ -785,11 +798,10 @@ export class DcsIFrame {
 
 				console.debug('[Docuss] onSetRouteProps assigned category to composer', {
 					requestedCategory: category,
-					categoryId: cat.id
+					categoryId: resolvedCategoryId
 				})
-			} else {
-				u.logError(`Category "${category}" not found in Discourse`)
-			}
+		} else if (category) {
+			u.logError(`Category "${category}" not found in Discourse`)
 		}
 	}
 
