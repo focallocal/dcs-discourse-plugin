@@ -323,44 +323,15 @@ export class DcsIFrame {
 		}
 
 		// Case webApp with no need for reloading the url
-				if (cat) {
-					const tagsShowCtrl =
-						this.container.lookup('controller:tags-show') ||
-						this.container.lookup('controller:tags')
+		if (!page) {
+			this._notifyClientOfCurrentRoute()
+			return false
+		}
 
-					if (tagsShowCtrl?.set) {
-						try {
-							tagsShowCtrl.set('category', cat)
-							tagsShowCtrl.set('canCreateTopicOnCategory', true)
-						} catch (controllerError) {
-							console.warn('Failed to update tag controller category:', controllerError)
-						}
-					}
-
-					try {
-						const composerCtrl = this.container.lookup('controller:composer')
-						const composerModel = composerCtrl?.model
-						if (composerModel) {
-							if (typeof composerModel.set === 'function') {
-								composerModel.set('category', cat)
-								composerModel.set('categoryId', cat.id)
-							} else {
-								composerModel.category = cat
-								composerModel.categoryId = cat.id
-							}
-							if (composerCtrl?.setProperties) {
-								composerCtrl.setProperties({ categoryId: cat.id })
-							}
-						}
-					} catch (composerError) {
-						console.warn('Failed to push Docuss category onto composer model:', composerError)
-					}
-
-					console.debug('[Docuss] onSetRouteProps assigned category to composer', {
-						requestedCategory: category,
-						categoryId: cat && cat.id
-					})
-				} else {
+		// Get the page url
+		let url = page.url
+		if (page.needsProxy) {
+			const parsedUrl = new URL(url)
 			parsedUrl.protocol = this.parsedProxyUrl.protocol
 			parsedUrl.hostname += '.' + this.parsedProxyUrl.hostname
 			if (this.parsedProxyUrl.port) {
@@ -737,18 +708,55 @@ export class DcsIFrame {
 
 		// Set category
 		if (category) {
-			// Get the category from Discourse
 			const appCtrl = this.container.lookup('controller:application')
-			const cat = appCtrl.site.categories.find(c => c['name'] === category)
+			const cat = appCtrl?.site?.categories?.find(c => c['name'] === category)
 
-			// Set the category in the composer
 			if (cat) {
-				const tagsShowCtrl = this.container.lookup('controller:tags-show')
-				tagsShowCtrl.set('category', cat)
-				tagsShowCtrl.set('canCreateTopicOnCategory', true)
+				const applyCategoryToController = controller => {
+					if (!controller) {
+						return false
+					}
+					try {
+						if (typeof controller.set === 'function') {
+							controller.set('category', cat)
+							controller.set('canCreateTopicOnCategory', true)
+						} else {
+							controller.category = cat
+							controller.canCreateTopicOnCategory = true
+						}
+						return true
+					} catch (controllerError) {
+						console.warn('Failed to update Docuss discovery controller category:', controllerError)
+						return false
+					}
+				}
+
+				applyCategoryToController(this.container.lookup('controller:tags-show'))
+				applyCategoryToController(this.container.lookup('controller:tag-show'))
+				applyCategoryToController(this.container.lookup('controller:tags'))
+
+				try {
+					const composerCtrl = this.container.lookup('controller:composer')
+					const composerModel = composerCtrl?.model
+					if (composerModel) {
+						if (typeof composerModel.set === 'function') {
+							composerModel.set('category', cat)
+							composerModel.set('categoryId', cat.id)
+						} else {
+							composerModel.category = cat
+							composerModel.categoryId = cat.id
+						}
+						if (composerCtrl?.setProperties) {
+							composerCtrl.setProperties({ categoryId: cat.id })
+						}
+					}
+				} catch (composerError) {
+					console.warn('Failed to push Docuss category onto composer model:', composerError)
+				}
+
 				console.debug('[Docuss] onSetRouteProps assigned category to composer', {
 					requestedCategory: category,
-					categoryId: cat && cat.id
+					categoryId: cat.id
 				})
 			} else {
 				u.logError(`Category "${category}" not found in Discourse`)
