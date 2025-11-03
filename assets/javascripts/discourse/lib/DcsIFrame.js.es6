@@ -623,14 +623,24 @@ export class DcsIFrame {
 		// something is wrong. When clicking quickly on a menu, Discourse might
 		// already have changed the route to a non WITH_SPLIT_BAR page when the
 		// setRouteProps message arrives
-		if (this.currentRoute.layout !== 2 && this.currentRoute.layout !== 3) {
+		const layout = this.currentRoute?.layout
+		const docussLayoutActive = layout === 2 || layout === 3
+		if (!docussLayoutActive) {
+			console.debug('[Docuss] onSetRouteProps skipped', {
+				reason: 'layout-not-split',
+				currentRoute: this.currentRoute,
+				incomingCategory: category
+			})
+			this.container.isDocussActive = false
 			return
 		}
 
-		if (!this.container.isDocussActive) {
-			console.debug('[Docuss] onSetRouteProps ignored because Docuss is not active')
-			return
-		}
+		this.container.isDocussActive = true
+		console.debug('[Docuss] onSetRouteProps accepted', {
+			layout,
+			incomingCategory: category,
+			currentRoute: this.currentRoute
+		})
 
 		// Set title
 		if (discourseTitle) {
@@ -714,7 +724,19 @@ export class DcsIFrame {
 		// Set category
 		if (category) {
 			const appCtrl = this.container.lookup('controller:application')
-			const cat = appCtrl?.site?.categories?.find(c => c['name'] === category)
+			const cat = appCtrl?.site?.categories?.find(c => {
+				if (!c) {
+					return false
+				}
+				const candidateName = c['name']
+				const candidateSlug = c['slug']
+				const candidateId = c['id']
+				return (
+					candidateName === category ||
+					candidateSlug === category ||
+					String(candidateId) === String(category)
+				)
+			})
 
 			if (cat) {
 				const applyCategoryToController = controller => {
@@ -739,6 +761,8 @@ export class DcsIFrame {
 				applyCategoryToController(this.container.lookup('controller:tags-show'))
 				applyCategoryToController(this.container.lookup('controller:tag-show'))
 				applyCategoryToController(this.container.lookup('controller:tags'))
+				this.container.docussPendingCategory = cat
+				this.container.docussPendingCategoryId = cat.id
 
 				try {
 					const composerCtrl = this.container.lookup('controller:composer')
