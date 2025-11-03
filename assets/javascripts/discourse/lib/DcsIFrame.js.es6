@@ -646,8 +646,6 @@ export class DcsIFrame {
 
 			if (resolvedCategory) {
 				resolvedCategoryId = resolvedCategory.id
-				this.container.docussPendingCategory = resolvedCategory
-				this.container.docussPendingCategoryId = resolvedCategoryId
 			}
 		}
 
@@ -659,6 +657,8 @@ export class DcsIFrame {
 				resolvedCategoryId
 			})
 			this.container.isDocussActive = false
+			this.container.docussPendingCategory = null
+			this.container.docussPendingCategoryId = null
 			if (category && !resolvedCategory) {
 				u.logError(`Category "${category}" not found in Discourse`)
 			}
@@ -666,6 +666,13 @@ export class DcsIFrame {
 		}
 
 		this.container.isDocussActive = true
+		if (resolvedCategory) {
+			this.container.docussPendingCategory = resolvedCategory
+			this.container.docussPendingCategoryId = resolvedCategoryId
+		} else {
+			this.container.docussPendingCategory = null
+			this.container.docussPendingCategoryId = null
+		}
 		console.debug('[Docuss] onSetRouteProps accepted', {
 			layout,
 			incomingCategory: category,

@@ -27,6 +27,51 @@ export default {
     let shrinkComposer = true;
     let pendingNavigation = null;
 
+    let docussActive = false;
+    container.isDocussActive = false;
+  container.docussPendingCategory = null;
+  container.docussPendingCategoryId = null;
+
+    const setDocussActive = (active) => {
+      const html = document.documentElement;
+
+      if (active) {
+        html.classList.remove("dcs-enable-default");
+        html.classList.add("dcs2");
+        html.classList.add("dcs-map");
+      } else {
+        html.classList.remove("dcs2", "dcs-map", "dcs-debug");
+        html.classList.remove("dcs-enable-default");
+        html.removeAttribute("dcs-layout");
+        if (docussActive && container.dcsLayout) {
+          try {
+            container.dcsLayout.setLayout(1);
+          } catch (layoutError) {
+            console.warn("Failed to reset Docuss layout while deactivating Docuss:", layoutError);
+          }
+        }
+        container.docussPendingCategory = null;
+        container.docussPendingCategoryId = null;
+      }
+
+      docussActive = active;
+      container.isDocussActive = active;
+
+      console.debug("[Docuss] setDocussActive", {
+        active,
+        iframeLayout: dcsIFrame?.currentRoute?.layout,
+      });
+    };
+
+    const syncDocussActiveFromLayout = () => {
+      if (!dcsIFrame || !dcsIFrame.currentRoute) {
+        return;
+      }
+      const layout = dcsIFrame.currentRoute?.layout;
+      const active = layout === 2 || layout === 3;
+      setDocussActive(active);
+    };
+
     const routerService = (() => {
       try {
         return container.lookup("service:router");
@@ -91,18 +136,7 @@ export default {
           
           console.log("Route detection:", { isDocussRoute, isTagsIntersection, isDcsRoute, currentRouteName, currentUrl });
           
-          if (isDcsRoute) {
-            console.log("✓ Initial route IS Docuss - adding dcs2 class");
-            document.documentElement.classList.remove('dcs-enable-default');
-            document.documentElement.classList.add('dcs2');
-            document.documentElement.classList.add('dcs-map');
-          } else {
-            console.log("✓ Initial route is NOT Docuss - explicitly removing dcs2 class");
-            // Explicitly remove to ensure it's not there
-            document.documentElement.classList.remove('dcs2');
-            document.documentElement.classList.remove('dcs-map');
-            document.documentElement.classList.remove('dcs-enable-default');
-          }
+          setDocussActive(isDcsRoute);
           
           if (currentRouteName && dcsIFrame && container.dcsLayout && isDcsRoute) {
             try {
@@ -267,64 +301,67 @@ export default {
           const isAdminRoute = routeName?.startsWith('admin') || normalizedPath.startsWith('/admin');
 
           if (isAdminRoute) {
-            if (container.dcsLayout) {
-              container.dcsLayout.setLayout(1);
-            }
+            setDocussActive(false);
             return;
           }
 
-          if (routeName && dcsIFrame && container.dcsLayout && isDcsManagedRoute) {
-            try {
-              console.log("✓ All conditions met, calling onDidTransition for route:", routeName);
-              onDidTransition({
-                container,
-                iframe: dcsIFrame,
-                routeName,
-                queryParamsOnly,
-              });
+          if (isDcsManagedRoute) {
+            if (routeName && dcsIFrame && container.dcsLayout) {
+              try {
+                console.log("✓ All conditions met, calling onDidTransition for route:", routeName);
+                onDidTransition({
+                  container,
+                  iframe: dcsIFrame,
+                  routeName,
+                  queryParamsOnly,
+                });
 
-              const sidebarService = container.lookup("service:sidebar");
-              if (sidebarService) {
-                const iframeLayout = dcsIFrame?.currentRoute?.layout;
-                const shouldCloseSidebar =
-                  iframeLayout !== undefined
-                    ? iframeLayout !== 1
-                    : (isDocussRoute || isTagsIntersection || isTopicRoute);
+                syncDocussActiveFromLayout();
 
-                if (shouldCloseSidebar) {
-                  try {
-                    if (typeof sidebarService.closeSidebar === 'function') {
-                      sidebarService.closeSidebar();
-                      console.log("✓ Sidebar closed for Docuss layout");
-                    } else if (typeof sidebarService.toggleSidebar === 'function') {
-                      sidebarService.toggleSidebar();
+                const sidebarService = container.lookup("service:sidebar");
+                if (sidebarService) {
+                  const iframeLayout = dcsIFrame?.currentRoute?.layout;
+                  const shouldCloseSidebar =
+                    iframeLayout !== undefined
+                      ? iframeLayout !== 1
+                      : (isDocussRoute || isTagsIntersection || isTopicRoute);
+
+                  if (shouldCloseSidebar) {
+                    try {
+                      if (typeof sidebarService.closeSidebar === 'function') {
+                        sidebarService.closeSidebar();
+                        console.log("✓ Sidebar closed for Docuss layout");
+                      } else if (typeof sidebarService.toggleSidebar === 'function') {
+                        sidebarService.toggleSidebar();
+                      }
+                    } catch (sidebarError) {
+                      console.warn("Could not close sidebar:", sidebarError);
                     }
-                  } catch (sidebarError) {
-                    console.warn("Could not close sidebar:", sidebarError);
-                  }
-                } else if (typeof sidebarService.openSidebar === 'function') {
-                  try {
-                    sidebarService.openSidebar();
-                    console.log("✓ Sidebar opened (non-Docuss layout)");
-                  } catch (sidebarError) {
-                    // No-op if sidebar service cannot open
+                  } else if (typeof sidebarService.openSidebar === 'function') {
+                    try {
+                      sidebarService.openSidebar();
+                      console.log("✓ Sidebar opened (non-Docuss layout)");
+                    } catch (sidebarError) {
+                      // No-op if sidebar service cannot open
+                    }
                   }
                 }
-              }
 
-            } catch (e) {
-              console.warn("onDidTransition failed:", e);
+              } catch (e) {
+                console.warn("onDidTransition failed:", e);
+                syncDocussActiveFromLayout();
+              }
+            } else {
+              console.log("⚠ Skipping onDidTransition - missing conditions:", {
+                hasRoute: !!routeName,
+                hasIFrame: !!dcsIFrame,
+                hasLayout: !!container.dcsLayout,
+                isDcsManagedRoute,
+              });
+              syncDocussActiveFromLayout();
             }
           } else {
-            console.log("⚠ Skipping onDidTransition - missing conditions:", {
-              hasRoute: !!routeName,
-              hasIFrame: !!dcsIFrame,
-              hasLayout: !!container.dcsLayout,
-              isDcsManagedRoute,
-            });
-            if (container.dcsLayout) {
-              container.dcsLayout.setLayout(1);
-            }
+            setDocussActive(false);
           }
 
           // Shrink composer on page change - with better error handling
@@ -400,6 +437,36 @@ export default {
             // Check if composer is actually open
             const composeState = model.composeState || model.get?.("composeState");
             if (composeState !== Composer.OPEN) return;
+
+            const shouldApplyDocussCategory =
+              !!container.docussPendingCategory &&
+              (container.isDocussActive || document.documentElement.classList.contains("dcs2"));
+
+            if (shouldApplyDocussCategory) {
+              try {
+                const pendingCat = container.docussPendingCategory;
+                const pendingCatId = container.docussPendingCategoryId;
+
+                if (typeof model.set === "function") {
+                  model.set("category", pendingCat);
+                  model.set("categoryId", pendingCatId);
+                } else {
+                  model.category = pendingCat;
+                  model.categoryId = pendingCatId;
+                }
+
+                if (composerCtrl?.setProperties) {
+                  composerCtrl.setProperties({ categoryId: pendingCatId });
+                }
+
+                console.debug("[Docuss] composer auto-assigned category", {
+                  categoryId: pendingCatId,
+                  categoryName: pendingCat?.name,
+                });
+              } catch (categoryError) {
+                console.warn("Failed to apply Docuss pending category to composer:", categoryError);
+              }
+            }
 
             const tags = model.tags || model.topic?.tags || [];
             console.debug("[Docuss] composer opened", {
