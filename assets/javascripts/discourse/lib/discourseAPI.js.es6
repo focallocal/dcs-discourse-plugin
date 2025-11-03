@@ -12,8 +12,7 @@ export const discourseAPI = {
 				?.getAttribute('content')
 
 			const headers = {
-				'Content-Type': 'application/json',
-				'Accept': 'application/json',
+				Accept: 'application/json',
 				...moreHeaders
 			}
 
@@ -28,8 +27,23 @@ export const discourseAPI = {
 				credentials: 'same-origin'
 			}
 
-			if (params && (method === 'POST' || method === 'PUT')) {
-				options.body = JSON.stringify(params)
+			if (params && ['POST', 'PUT', 'PATCH'].includes(method)) {
+				const isFormPayload =
+					params instanceof URLSearchParams ||
+					params instanceof FormData ||
+					typeof params === 'string'
+
+				if (isFormPayload) {
+					if (params instanceof URLSearchParams) {
+						headers['Content-Type'] =
+							headers['Content-Type'] ||
+							'application/x-www-form-urlencoded; charset=UTF-8'
+					}
+					options.body = params
+				} else {
+					headers['Content-Type'] = headers['Content-Type'] || 'application/json'
+					options.body = JSON.stringify(params)
+				}
 			}
 
 			fetch(path, options)
@@ -206,14 +220,12 @@ export const discourseAPI = {
 			tag,
 			notificationLevel
 		})
+		const body = new URLSearchParams()
+		body.append('tag_notification[notification_level]', notificationLevel)
 		return discourseAPI._request({
 			method: 'PUT',
 			path: `/tags/${tag}/notifications`,
-			params: {
-				['tag_notification']: {
-					['notification_level']: notificationLevel
-				}
-			}
+			params: body
 		})
 	},
 
@@ -222,12 +234,12 @@ export const discourseAPI = {
 			topicId,
 			notificationLevel
 		})
+		const body = new URLSearchParams()
+		body.append('notification_level', notificationLevel)
 		return discourseAPI._request({
 			method: 'PUT',
 			path: `/t/${topicId}/notifications`,
-			params: {
-				['notification_level']: notificationLevel
-			}
+			params: body
 		})
 	}
 }
