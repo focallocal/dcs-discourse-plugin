@@ -627,6 +627,11 @@ export class DcsIFrame {
 			return
 		}
 
+		if (!this.container.isDocussActive) {
+			console.debug('[Docuss] onSetRouteProps ignored because Docuss is not active')
+			return
+		}
+
 		// Set title
 		if (discourseTitle) {
 			// Escape the title
