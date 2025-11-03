@@ -867,29 +867,48 @@ export class DcsIFrame {
 
 		// Create the topic
 		discourseAPI.newTopic({ title, body, catId, tags }).then(
-			() => {
+			createdPost => {
 				if (!shouldSetTopicNotifications) {
 					return
 				}
 
 				const notificationTags = ['dcs-discuss', tag]
-				Promise.all(
-					notificationTags.map(notificationTag =>
-						discourseAPI.setTagNotification({
+				const tagPromises = notificationTags.map(notificationTag =>
+					discourseAPI
+						.setTagNotification({
 							tag: notificationTag,
 							notificationLevel: targetLevel
 						})
-					)
+						.catch(e => {
+							u.logError(
+								`Failed to set the notification level for tag ${notificationTag}: ${e}`
+							)
+						})
 				)
-					.catch(e => {
-						u.logError(
-							`Failed to set the notification level for tags ${notificationTags.join(', ')}: ${e}`
-						)
-					})
+
+				const topicId = createdPost && createdPost['topic_id']
+				if (topicId) {
+					tagPromises.push(
+						discourseAPI
+							.setTopicNotification({
+								topicId,
+								notificationLevel: targetLevel
+							})
+							.catch(e => {
+								u.logError(
+									`Failed to set the notification level for topic ${topicId}: ${e}`
+								)
+							})
+					)
+				} else {
+					u.logError('Failed to set the topic notification level: missing topic_id in response')
+				}
+
+				return Promise.all(tagPromises)
 			},
 			e => {
 				const tagsStr = JSON.stringify(tags)
-				u.logError(`Failed to create topic: ${e}`)
+				u.logError(`Failed to create topic with tags ${tagsStr}: ${e}`)
 			}
 		)
 	}

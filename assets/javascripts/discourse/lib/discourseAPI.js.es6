@@ -211,5 +211,15 @@ export const discourseAPI = {
 				}
 			}
 		})
+	},
+
+	setTopicNotification({ topicId, notificationLevel }) {
+		return discourseAPI._request({
+			method: 'PUT',
+			path: `/t/${topicId}/notifications`,
+			params: {
+				['notification_level']: notificationLevel
+			}
+		})
 	}
 }
