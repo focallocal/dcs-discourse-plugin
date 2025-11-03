@@ -77,6 +77,19 @@ export class DcsLayout {
 
   setLayout(layout) {
     const html = document.documentElement
+    const previousLayout = this.prevLayout
+    let stackSnippet = []
+    try {
+      const stackLines = new Error().stack?.split('\n') || []
+      stackSnippet = stackLines.slice(2, 6)
+    } catch (e) {
+      stackSnippet = ['stack unavailable', e && e.message]
+    }
+    console.debug('[Docuss] setLayout requested', {
+      from: previousLayout,
+      to: layout,
+      stack: stackSnippet
+    })
     
     switch (this.prevLayout) {
       case null:

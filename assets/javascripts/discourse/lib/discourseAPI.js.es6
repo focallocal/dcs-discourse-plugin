@@ -202,6 +202,10 @@ export const discourseAPI = {
 	// Url: /tags/dcs-missio-test1/notifications
 	// Data: tag_notification[notification_level]: 3
 	setTagNotification({ tag, notificationLevel }) {
+		console.debug('[Docuss] setTagNotification request', {
+			tag,
+			notificationLevel
+		})
 		return discourseAPI._request({
 			method: 'PUT',
 			path: `/tags/${tag}/notifications`,
@@ -214,6 +218,10 @@ export const discourseAPI = {
 	},
 
 	setTopicNotification({ topicId, notificationLevel }) {
+		console.debug('[Docuss] setTopicNotification request', {
+			topicId,
+			notificationLevel
+		})
 		return discourseAPI._request({
 			method: 'PUT',
 			path: `/t/${topicId}/notifications`,

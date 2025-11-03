@@ -717,6 +717,10 @@ export class DcsIFrame {
 				const tagsShowCtrl = this.container.lookup('controller:tags-show')
 				tagsShowCtrl.set('category', cat)
 				tagsShowCtrl.set('canCreateTopicOnCategory', true)
+				console.debug('[Docuss] onSetRouteProps assigned category to composer', {
+					requestedCategory: category,
+					categoryId: cat && cat.id
+				})
 			} else {
 				u.logError(`Category "${category}" not found in Discourse`)
 			}
@@ -758,6 +762,12 @@ export class DcsIFrame {
 		const { pageName, triggerIds, notificationLevel } = args
 		u.throwIfNot(pageName, 'postCreateDcsTags: missing argument "pageName"')
 
+		console.log('[Docuss] onCreateDcsTags invoked', {
+			pageName,
+			triggerIds,
+			notificationLevel
+		})
+
 		// Check page name existence
 		const found = this.descrArray.find(
 			d =>
@@ -773,27 +783,43 @@ export class DcsIFrame {
 		const tags = triggerIds
 			? triggerIds.map(triggerId => DcsTag.build({ pageName, triggerId }))
 			: [DcsTag.build({ pageName, triggerId: undefined })]
+		console.debug('[Docuss] onCreateDcsTags resolved tags', tags)
 
 		const targetLevel =
 			notificationLevel === undefined
 				? NotificationLevels.WATCHING
 				: notificationLevel
-
 		const shouldSetNotifications =
 			targetLevel !== undefined &&
 			targetLevel !== NotificationLevels.REGULAR
+		console.debug('[Docuss] onCreateDcsTags notification intent', {
+			targetLevel,
+			shouldSetNotifications
+		})
 
 		const applyNotificationLevel = () => {
 			if (!shouldSetNotifications) {
+				console.debug('[Docuss] onCreateDcsTags skipping notification level change')
 				return Promise.resolve()
 			}
 			const tagsStr = JSON.stringify(tags)
+			console.debug('[Docuss] onCreateDcsTags setting notification level', {
+				targetLevel,
+				tags
+			})
 			return u.async
 				.forEach(tags, tag =>
-					discourseAPI.setTagNotification({
+					discourseAPI
+						.setTagNotification({
 						tag,
 						notificationLevel: targetLevel
 					})
+					.then(() =>
+						console.debug('[Docuss] setTagNotification success', {
+							tag,
+							notificationLevel: targetLevel
+						})
+					)
 				)
 				.catch(e => {
 					u.logError(
@@ -804,10 +830,17 @@ export class DcsIFrame {
 
 		// Create the tags, then ensure the creator follows them
 		discourseAPI.newTags(tags).then(
-			() => applyNotificationLevel(),
+			() => {
+				console.debug('[Docuss] newTags success', { tags })
+				return applyNotificationLevel()
+			},
 			e => {
 				const tagsStr = JSON.stringify(tags)
 				u.logError(`Failed to create tags ${tagsStr}: ${e}`)
+				console.warn('[Docuss] newTags failed; attempting notification level anyway', {
+					tags,
+					error: e
+				})
 				return applyNotificationLevel()
 			}
 		)
@@ -843,6 +876,14 @@ export class DcsIFrame {
 		// Build the tags
 		const tag = DcsTag.build({ pageName, triggerId })
 		const tags = [tag, 'dcs-discuss']
+		console.log('[Docuss] onCreateTopic payload prepared', {
+			title,
+			category,
+			pageName,
+			triggerId,
+			tags,
+			targetLevelDefault: tagNotificationLevel
+		})
 
 		// Get the category id
 		let catId = undefined
@@ -864,11 +905,16 @@ export class DcsIFrame {
 		const shouldSetTopicNotifications =
 			targetLevel !== undefined &&
 			targetLevel !== NotificationLevels.REGULAR
+		console.debug('[Docuss] onCreateTopic notification intent', {
+			targetLevel,
+			shouldSetTopicNotifications
+		})
 
 		// Create the topic
 		discourseAPI.newTopic({ title, body, catId, tags }).then(
 			createdPost => {
 				if (!shouldSetTopicNotifications) {
+					console.debug('[Docuss] onCreateTopic skipping notification setup')
 					return
 				}
 
@@ -885,9 +931,17 @@ export class DcsIFrame {
 							)
 						})
 				)
+				console.debug('[Docuss] onCreateTopic tag notifications requested', {
+					notificationTags,
+					targetLevel
+				})
 
 				const topicId = createdPost && createdPost['topic_id']
 				if (topicId) {
+					console.debug('[Docuss] onCreateTopic topic created', {
+						topicId,
+						notificationLevel: targetLevel
+					})
 					tagPromises.push(
 						discourseAPI
 							.setTopicNotification({
@@ -902,13 +956,27 @@ export class DcsIFrame {
 					)
 				} else {
 					u.logError('Failed to set the topic notification level: missing topic_id in response')
+					console.warn('[Docuss] onCreateTopic missing topic_id in response', {
+						createdPost
+					})
 				}
 
-				return Promise.all(tagPromises)
+				return Promise.all(tagPromises).then(() => {
+					console.debug('[Docuss] onCreateTopic notification promises resolved', {
+						topicId,
+						targetLevel
+					})
+				})
 			},
 			e => {
 				const tagsStr = JSON.stringify(tags)
 				u.logError(`Failed to create topic with tags ${tagsStr}: ${e}`)
+				console.error('[Docuss] onCreateTopic failed', {
+					error: e,
+					tags,
+					title,
+					pageName
+				})
 			}
 		)
 	}

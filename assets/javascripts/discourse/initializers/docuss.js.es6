@@ -401,8 +401,15 @@ export default {
             const composeState = model.composeState || model.get?.("composeState");
             if (composeState !== Composer.OPEN) return;
 
-            // Get tags
             const tags = model.tags || model.topic?.tags || [];
+            console.debug("[Docuss] composer opened", {
+              composeState,
+              tags,
+              categoryId: model.categoryId,
+              category: model.category,
+              navigatedToTag: model.__dcsNavigatedToTag
+            });
+
             const dcsTag = tags.find((t) => DcsTag.parse?.(t));
 
             // ========================================
@@ -421,6 +428,12 @@ export default {
                 path = `/tags/intersection/${modeTag}/${dcsTag}?r=true`;
               }
 
+              console.debug("[Docuss] composer navigating to Docuss context", {
+                dcsTag,
+                path,
+                fromExistingTopic: !!model.topic
+              });
+
               shrinkComposer = false;
               model.__dcsNavigatedToTag = true;
 
@@ -429,6 +442,10 @@ export default {
                 if (router?.transitionTo) {
                   const currentUrl = router.currentURL || `${window.location.pathname}${window.location.search}`;
                   if (currentUrl !== path) {
+                    console.debug("[Docuss] composer initiating router transition", {
+                      from: currentUrl,
+                      to: path
+                    });
                     router.transitionTo(path);
                   }
                 }
@@ -456,6 +473,7 @@ export default {
                   );
                   if (button) {
                     button.textContent = "Add Comment";
+                    console.debug("[Docuss] composer updated comment button label");
                   }
                 } catch (e) {
                   console.warn("Failed to update button text:", e);
