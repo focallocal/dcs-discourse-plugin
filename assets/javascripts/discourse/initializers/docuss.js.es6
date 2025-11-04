@@ -1,5 +1,5 @@
 // assets/javascripts/discourse/initializers/docuss.js.es6
-import { schedule } from "@ember/runloop";
+import { schedule, later } from "@ember/runloop";
 import { withPluginApi } from "discourse/lib/plugin-api";
 import { setDefaultHomepage } from "discourse/lib/utilities";
 import Composer from "discourse/models/composer";
@@ -29,8 +29,196 @@ export default {
 
     let docussActive = false;
     container.isDocussActive = false;
-  container.docussPendingCategory = null;
-  container.docussPendingCategoryId = null;
+    container.docussPendingCategory = null;
+    container.docussPendingCategoryId = null;
+
+    const APPLY_PENDING_CATEGORY_MAX_ATTEMPTS = 5;
+    const APPLY_PENDING_CATEGORY_DELAY_MS = 75;
+
+    const applyProperties = (target, props) => {
+      if (!target || !props) {
+        return;
+      }
+
+      if (typeof target.setProperties === "function") {
+        target.setProperties(props);
+        return;
+      }
+
+      const entries = Object.entries(props);
+      if (typeof target.set === "function") {
+        entries.forEach(([key, value]) => {
+          try {
+            target.set(key, value);
+          } catch (setError) {
+            target[key] = value;
+          }
+        });
+        return;
+      }
+
+      entries.forEach(([key, value]) => {
+        target[key] = value;
+      });
+    };
+
+  const enforceDocussCategoryOnComposer = (attempt = 0) => {
+      if (attempt > APPLY_PENDING_CATEGORY_MAX_ATTEMPTS) {
+        return;
+      }
+
+      const pendingCategory = container.docussPendingCategory;
+      const pendingCategoryId = container.docussPendingCategoryId;
+
+      if (!pendingCategory || !pendingCategoryId) {
+        return;
+      }
+
+      try {
+        const composerCtrl = container.lookup("controller:composer");
+        const composerModel = composerCtrl?.model;
+
+        if (!composerCtrl || !composerModel) {
+          later(() => enforceDocussCategoryOnComposer(attempt + 1), APPLY_PENDING_CATEGORY_DELAY_MS);
+          return;
+        }
+
+        const composeState = composerModel.composeState || composerModel.get?.("composeState");
+        if (composeState !== Composer.OPEN) {
+          later(() => enforceDocussCategoryOnComposer(attempt + 1), APPLY_PENDING_CATEGORY_DELAY_MS);
+          return;
+        }
+
+        const normalizeId = (value) => {
+          if (value === null || value === undefined) {
+            return undefined;
+          }
+          const numeric = Number(value);
+          return Number.isNaN(numeric) ? value : numeric;
+        };
+
+        const currentModelCategoryId = normalizeId(
+          composerModel.categoryId ?? composerModel.category_id ?? composerCtrl.categoryId
+        );
+
+        const normalizedPendingId = normalizeId(pendingCategoryId);
+
+        if (
+          composerModel.__docussPendingCategoryApplied &&
+          currentModelCategoryId === normalizedPendingId
+        ) {
+          return;
+        }
+
+        applyProperties(composerModel, {
+          category: pendingCategory,
+          categoryId: pendingCategoryId,
+          category_id: pendingCategoryId,
+          categorySlug: pendingCategory?.slug,
+        });
+
+        applyProperties(composerCtrl, {
+          category: pendingCategory,
+          categoryId: pendingCategoryId,
+        });
+
+        composerModel.__docussPendingCategoryApplied = true;
+        container.docussPendingCategoryLastAppliedAt = Date.now();
+
+        console.debug("[Docuss] composer pending category enforced", {
+          categoryId: pendingCategoryId,
+          categoryName: pendingCategory?.name,
+          attempt,
+        });
+      } catch (enforceError) {
+        console.warn("Docuss failed to enforce pending category on composer:", enforceError);
+      }
+    };
+
+  container.enforceDocussCategoryOnComposer = enforceDocussCategoryOnComposer;
+
+  const shouldAugmentTagRequest = (url, method = "GET") => {
+      if (!url || method.toUpperCase() !== "GET") {
+        return false;
+      }
+      if (!url.includes("/tags/")) {
+        return false;
+      }
+      if (!url.includes(".json")) {
+        return false;
+      }
+      return !url.includes("include_secured=");
+    };
+
+    const appendIncludeSecured = (url) => {
+      if (!url) {
+        return url;
+      }
+      const separator = url.includes("?") ? "&" : "?";
+      return `${url}${separator}include_secured=true`;
+    };
+
+    const RequestCtor = typeof Request !== "undefined" ? Request : null;
+
+    if (!window.__docussFetchPatched && typeof window.fetch === "function") {
+      const originalFetch = window.fetch.bind(window);
+
+      window.fetch = (resource, init = {}) => {
+        try {
+          let url = null;
+          let method = init?.method || undefined;
+
+          if (RequestCtor && resource instanceof RequestCtor) {
+            url = resource.url;
+            method = method || resource.method;
+          } else if (typeof resource === "string") {
+            url = resource;
+          } else if (resource && typeof resource === "object" && "url" in resource) {
+            url = resource.url;
+          }
+
+          if (shouldAugmentTagRequest(url, method || "GET")) {
+            const augmentedUrl = appendIncludeSecured(url);
+
+            if (RequestCtor && resource instanceof RequestCtor) {
+              const cloned = resource;
+              const requestInit = {
+                method: cloned.method,
+                headers: cloned.headers,
+                body: undefined,
+                mode: cloned.mode,
+                credentials: cloned.credentials,
+                cache: cloned.cache,
+                redirect: cloned.redirect,
+                referrer: cloned.referrer,
+                referrerPolicy: cloned.referrerPolicy,
+                integrity: cloned.integrity,
+                keepalive: cloned.keepalive,
+                signal: cloned.signal,
+              };
+              resource = new RequestCtor(augmentedUrl, requestInit);
+            } else {
+              resource = augmentedUrl;
+            }
+          }
+        } catch (fetchPatchError) {
+          console.warn("Docuss fetch patch failed to evaluate request:", fetchPatchError);
+        }
+
+        return originalFetch(resource, init);
+      };
+
+      window.__docussFetchPatched = true;
+    }
+
+    if (!window.__docussAjaxPatched && window.jQuery?.ajaxPrefilter) {
+      window.jQuery.ajaxPrefilter((options = {}) => {
+        if (shouldAugmentTagRequest(options.url, options.type || options.method || "GET")) {
+          options.url = appendIncludeSecured(options.url);
+        }
+      });
+      window.__docussAjaxPatched = true;
+    }
 
     const setDocussActive = (active) => {
       const html = document.documentElement;
@@ -443,29 +631,7 @@ export default {
               (container.isDocussActive || document.documentElement.classList.contains("dcs2"));
 
             if (shouldApplyDocussCategory) {
-              try {
-                const pendingCat = container.docussPendingCategory;
-                const pendingCatId = container.docussPendingCategoryId;
-
-                if (typeof model.set === "function") {
-                  model.set("category", pendingCat);
-                  model.set("categoryId", pendingCatId);
-                } else {
-                  model.category = pendingCat;
-                  model.categoryId = pendingCatId;
-                }
-
-                if (composerCtrl?.setProperties) {
-                  composerCtrl.setProperties({ categoryId: pendingCatId });
-                }
-
-                console.debug("[Docuss] composer auto-assigned category", {
-                  categoryId: pendingCatId,
-                  categoryName: pendingCat?.name,
-                });
-              } catch (categoryError) {
-                console.warn("Failed to apply Docuss pending category to composer:", categoryError);
-              }
+              enforceDocussCategoryOnComposer();
             }
 
             const tags = model.tags || model.topic?.tags || [];

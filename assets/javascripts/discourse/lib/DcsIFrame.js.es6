@@ -678,6 +678,11 @@ export class DcsIFrame {
 		if (resolvedCategory) {
 			this.container.docussPendingCategory = resolvedCategory
 			this.container.docussPendingCategoryId = resolvedCategoryId
+			try {
+				this.container.enforceDocussCategoryOnComposer?.()
+			} catch (pendingCategoryError) {
+				console.warn('[Docuss] Failed enforcing pending composer category from route props:', pendingCategoryError)
+			}
 		} else {
 			this.container.docussPendingCategory = null
 			this.container.docussPendingCategoryId = null
