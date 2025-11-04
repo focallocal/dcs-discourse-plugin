@@ -1003,43 +1003,16 @@ export class DcsIFrame {
 		discourseAPI.newTags(tags).then(
 			() => {
 				console.debug('[Docuss] Tag pre-creation succeeded or tags already exist')
-				this._createTopicWithTags({
-					title,
-					body,
-					catId,
-					tags,
-					tag,
-					targetLevel,
-					shouldSetTopicNotifications,
-					pageName,
-					triggerId
-				})
 			},
 			e => {
-				console.warn('[Docuss] Tag pre-creation failed, attempting topic creation anyway', e)
-				// Still try to create the topic - it might work if user has permissions
-				this._createTopicWithTags({
-					title,
-					body,
-					catId,
-					tags,
-					tag,
-					targetLevel,
-					shouldSetTopicNotifications,
-					pageName,
-					triggerId
-				})
+				console.warn('[Docuss] Tag pre-creation failed, will try anyway during topic creation', e)
 			}
-		)
-	}
-
-	/**
-	 * Internal helper to create topic with tags
-	 * @private
-	 */
-	_createTopicWithTags({ title, body, catId, tags, tag, targetLevel, shouldSetTopicNotifications, pageName, triggerId }) {
-		// Create the topic
-		discourseAPI.newTopic({ title, body, catId, tags }).then(
+		).finally(() => {
+			// Always create the topic after tag pre-creation attempt (success or failure)
+			console.debug('[Docuss] Now creating topic with tags', { tags })
+			
+			// Create the topic
+			discourseAPI.newTopic({ title, body, catId, tags }).then(
 			createdPost => {
 				if (!shouldSetTopicNotifications) {
 					console.debug('[Docuss] onCreateTopic skipping notification setup')
@@ -1106,8 +1079,9 @@ export class DcsIFrame {
 					pageName
 				})
 			}
-		)
-	}
+		) // End of newTopic promise
+		}) // End of finally block
+	} // End of onCreateTopic
 }
 
 //------------------------------------------------------------------------------
