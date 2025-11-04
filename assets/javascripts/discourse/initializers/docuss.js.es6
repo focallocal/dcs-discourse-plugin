@@ -461,7 +461,35 @@ export default {
               }
             }
 
-            const tags = model.tags || model.topic?.tags || [];
+            let tags = model.tags || model.topic?.tags || [];
+            
+            // CRITICAL FIX: When opening composer from tag intersection page,
+            // Discourse only pre-fills the primary tag (dcs-discuss), not the intersection tag.
+            // We need to manually add the page-specific tag from the current URL.
+            if (!model.topic && action === Composer.CREATE_TOPIC) {
+              const router = container.lookup("service:router");
+              const currentRoute = router?.currentRouteName;
+              
+              if (currentRoute === "tags.intersection") {
+                const route = container.lookup("route:tags.intersection");
+                const routeModel = route?.currentModel;
+                
+                if (routeModel?.additionalTags && routeModel.additionalTags.length > 0) {
+                  const intersectionTag = routeModel.additionalTags[0];
+                  
+                  // Only add if it's a Docuss tag and not already in the array
+                  if (DcsTag.parse?.(intersectionTag) && !tags.includes(intersectionTag)) {
+                    tags = [...tags, intersectionTag];
+                    model.tags = tags;
+                    console.debug("[Docuss] Added missing intersection tag to composer", {
+                      addedTag: intersectionTag,
+                      allTags: tags
+                    });
+                  }
+                }
+              }
+            }
+            
             console.debug("[Docuss] composer opened", {
               composeState,
               tags,
