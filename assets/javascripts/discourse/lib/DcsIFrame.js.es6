@@ -540,64 +540,103 @@ export class DcsIFrame {
 			baseQueryParts.push('r=false')
 		}
 		const intersectionQueryParts = baseQueryParts.slice()
-		intersectionQueryParts.push('include_secured=true')
-		const intersectionQuery = `?${intersectionQueryParts.join('&')}`
+		const intersectionQuery = intersectionQueryParts.length
+			? `?${intersectionQueryParts.join('&')}`
+			: ''
 		const topicQuery = baseQueryParts.length
 			? `?${baseQueryParts.join('&')}`
 			: ''
 
+		// ========================================
+		// PRE-WARM PERMISSION CACHE FOR HIDDEN CATEGORY
+		// This is critical for Discourse 3.6+ to allow secured category topics
+		// to appear in tag intersections. The Guardian permission system requires
+		// the category to be "visited" before tag intersection will return topics.
+		// ========================================
+		const prewarmCategoryPermission = () => {
+			// Get the category that was last set via onSetRouteProps
+			const appCtrl = this.container.lookup('controller:application')
+			const hiddenCategory = appCtrl?.site?.categories?.find(
+				c => c && c.name && c.name.toLowerCase() === 'hidden'
+			)
+			
+			if (hiddenCategory) {
+				const categoryId = hiddenCategory.id
+				console.debug('[Docuss] Pre-warming category permission cache', {
+					categoryId,
+					categoryName: hiddenCategory.name
+				})
+				
+				// Make a request to the category endpoint to establish permissions
+				return discourseAPI._request({
+					method: 'GET',
+					path: `/c/${categoryId}.json`
+				}).then(() => {
+					console.debug('[Docuss] Category permission cache warmed successfully')
+				}).catch(e => {
+					console.warn('[Docuss] Failed to warm category permission cache:', e)
+					// Don't block navigation on permission warming failure
+				})
+			}
+			return Promise.resolve()
+		}
+
 		// Case WITH_SPLIT_BAR + DISCUSS
 		if (interactMode === 'DISCUSS') {
-			this._goToPathFromClient({
-				path: `/tags/intersection/dcs-discuss/${dcsTag}${intersectionQuery}`,
-				hash: route.hash,
-				mode,
-				clientContext
+			prewarmCategoryPermission().then(() => {
+				this._goToPathFromClient({
+					path: `/tags/intersection/dcs-discuss/${dcsTag}${intersectionQuery}`,
+					hash: route.hash,
+					mode,
+					clientContext
+				})
 			})
 			return
 		}
 
 		// Case WITH_SPLIT_BAR + COMMENT
-		discourseAPI
-			.getTopicList({ tag: dcsTag })
-			.then(topicList => {
-				// Case there's no topic with this tag yet: see next "then"
-				if (!topicList.length) {
-					return 'not found'
-				}
+		prewarmCategoryPermission().then(() => {
+			discourseAPI
+				.getTopicList({ tag: dcsTag })
+				.then(topicList => {
+					// Case there's no topic with this tag yet: see next "then"
+					if (!topicList.length) {
+						return 'not found'
+					}
 
-				// Case topics have been found: go through those topics and find
-				// the first one that also has the tag 'dcs-comment'
-				const topic = topicList.find(t => t['tags'].includes('dcs-comment'))
+					// Case topics have been found: go through those topics and find
+					// the first one that also has the tag 'dcs-comment'
+					const topic = topicList.find(t => t['tags'].includes('dcs-comment'))
 
-				// If no such topic is found, there something wrong (should never
-				// happen)
-				u.throwIf(!topic, 'Error: no dcs-comment topic found in', topicList)
+					// If no such topic is found, there something wrong (should never
+					// happen)
+					u.throwIf(!topic, 'Error: no dcs-comment topic found in', topicList)
 
-				// Display the topic
-				// Don't forget the slug, otherwise Discourse will go through the
-				// intermediate route "topicBySlugOrId" that never resolves (i.e.
-				// transition.then() is never called)
-				this._goToPathFromClient({
-					path: `/t/${topic.slug}/${topic.id}${topicQuery}`,
-					hash: route.hash,
-					mode,
-					clientContext
-				})
-
-				return 'ok'
-			}, e => 'not found')
-			.then(res => {
-				// Case there's no topic with this tag yet
-				if (res === 'not found') {
+					// Display the topic
+					// Don't forget the slug, otherwise Discourse will go through the
+					// intermediate route "topicBySlugOrId" that never resolves (i.e.
+					// transition.then() is never called)
 					this._goToPathFromClient({
-						path: `/tags/intersection/dcs-comment/${dcsTag}${intersectionQuery}`,
+						path: `/t/${topic.slug}/${topic.id}${topicQuery}`,
 						hash: route.hash,
 						mode,
 						clientContext
 					})
-				}
-			})
+
+					return 'ok'
+				}, e => 'not found')
+				.then(res => {
+					// Case there's no topic with this tag yet
+					if (res === 'not found') {
+						this._goToPathFromClient({
+							path: `/tags/intersection/dcs-comment/${dcsTag}${intersectionQuery}`,
+							hash: route.hash,
+							mode,
+							clientContext
+						})
+					}
+				})
+		})
 	}
 
 	//----------------------------------------------------------------------------
@@ -666,8 +705,6 @@ export class DcsIFrame {
 				resolvedCategoryId
 			})
 			this.container.isDocussActive = false
-			this.container.docussPendingCategory = null
-			this.container.docussPendingCategoryId = null
 			if (category && !resolvedCategory) {
 				u.logError(`Category "${category}" not found in Discourse`)
 			}
@@ -675,18 +712,6 @@ export class DcsIFrame {
 		}
 
 		this.container.isDocussActive = true
-		if (resolvedCategory) {
-			this.container.docussPendingCategory = resolvedCategory
-			this.container.docussPendingCategoryId = resolvedCategoryId
-			try {
-				this.container.enforceDocussCategoryOnComposer?.()
-			} catch (pendingCategoryError) {
-				console.warn('[Docuss] Failed enforcing pending composer category from route props:', pendingCategoryError)
-			}
-		} else {
-			this.container.docussPendingCategory = null
-			this.container.docussPendingCategoryId = null
-		}
 		console.debug('[Docuss] onSetRouteProps accepted', {
 			layout,
 			incomingCategory: category,
