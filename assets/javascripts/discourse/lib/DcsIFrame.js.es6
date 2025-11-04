@@ -996,47 +996,48 @@ export class DcsIFrame {
 			shouldSetTopicNotifications
 		})
 
-		// ========================================
-		// PRE-CREATE TAGS FOR LOW-TRUST USERS
-		// The page-specific tag (e.g., dcs-m_2d-stories) must be created by an admin
-		// before low-trust users can use it in their topics. If we don't pre-create it,
-		// Discourse will silently drop the tag and only keep dcs-discuss.
-		// This ensures both tags exist before the topic is created.
-		// ========================================
-		console.debug('[Docuss] Pre-creating tags before topic creation', { tags })
+		// Pre-create tags if they don't exist yet
+		// This uses the "create temporary topic" approach which works for all users
+		// with "create tag allowed groups" permissions
+		console.debug('[Docuss] Pre-creating tags if needed', { tags })
 		discourseAPI.newTags(tags).then(
 			() => {
-				console.debug('[Docuss] Tags pre-created successfully', { tags })
+				console.debug('[Docuss] Tag pre-creation succeeded or tags already exist')
+				this._createTopicWithTags({
+					title,
+					body,
+					catId,
+					tags,
+					tag,
+					targetLevel,
+					shouldSetTopicNotifications,
+					pageName,
+					triggerId
+				})
 			},
 			e => {
-				// Don't fail - tags might already exist
-				console.warn('[Docuss] Tag pre-creation warning (continuing)', {
+				console.warn('[Docuss] Tag pre-creation failed, attempting topic creation anyway', e)
+				// Still try to create the topic - it might work if user has permissions
+				this._createTopicWithTags({
+					title,
+					body,
+					catId,
 					tags,
-					error: e
+					tag,
+					targetLevel,
+					shouldSetTopicNotifications,
+					pageName,
+					triggerId
 				})
 			}
-		).finally(() => {
-			// Create the topic after tag pre-creation attempt (success or failure)
-			console.debug('[Docuss] Now creating topic with tags', { tags })
-			this._createTopicWithPreCreatedTags({
-				title,
-				body,
-				catId,
-				tags,
-				tag,
-				targetLevel,
-				shouldSetTopicNotifications,
-				pageName,
-				triggerId
-			})
-		})
+		)
 	}
 
 	/**
-	 * Internal helper to create topic after tags have been pre-created
+	 * Internal helper to create topic with tags
 	 * @private
 	 */
-	_createTopicWithPreCreatedTags({ title, body, catId, tags, tag, targetLevel, shouldSetTopicNotifications, pageName, triggerId }) {
+	_createTopicWithTags({ title, body, catId, tags, tag, targetLevel, shouldSetTopicNotifications, pageName, triggerId }) {
 		// Create the topic
 		discourseAPI.newTopic({ title, body, catId, tags }).then(
 			createdPost => {
