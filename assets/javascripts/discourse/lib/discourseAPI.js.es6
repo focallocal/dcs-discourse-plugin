@@ -159,37 +159,66 @@ export const discourseAPI = {
 	// Complete function to create a tag.
 	// tags is an array of strings.
 	//
-	// When Discourse setting "allow uncategorized topics" is unchecked, a
-	// category is mandatory when creating a topic.But some categories might lack
-	// the "create" permission for the current user! So we try all categories.
-	// The good thing is: in most cases, the "Uncategorized" category is the first
-	// one of the list
+	// In Discourse 3.6+, tags can be created directly via POST /tags if the user
+	// is in the "create tag allowed groups". If that fails (permission denied),
+	// fall back to the old method of creating a temporary topic with the tags.
 	newTags(tags) {
-		return discourseAPI.getCatList().then(cats =>
-			u.async
-				.find(cats, cat =>
-					discourseAPI._newTags(tags, cat.id).then(
-						() => true,
-						e => {
-							console.log(
-								'discourseAPI.newTags(): cannot create topic.',
-								e
-							)
-							return false
-						}
-					)
-				)
-				.then(foundCat => {
-					if (!foundCat) {
-						throw 'discourseAPI.newTags(): could not find a category where creating a topic is allowed.'
-					} else {
-						console.log(
-							'discourseAPI.newTags(): found a category to create a topic.',
-							foundCat
-						)
+		console.debug('[Docuss] newTags attempting direct tag creation', { tags })
+		
+		// Try direct tag creation first (Discourse 3.6+ method)
+		return Promise.all(
+			tags.map(tag =>
+				discourseAPI._request({
+					method: 'POST',
+					path: '/tags',
+					params: { name: tag }
+				}).then(
+					() => {
+						console.debug('[Docuss] Direct tag creation succeeded', { tag })
+						return true
+					},
+					e => {
+						console.warn('[Docuss] Direct tag creation failed for', tag, ':', e)
+						return false
 					}
-				})
-		)
+				)
+			)
+		).then(results => {
+			// If all direct creations succeeded (or tags already exist), we're done
+			const allSucceeded = results.every(r => r === true)
+			if (allSucceeded) {
+				console.debug('[Docuss] All tags created successfully via direct method')
+				return
+			}
+			
+			// Fall back to old method: create temporary topic
+			console.debug('[Docuss] Falling back to temporary topic method')
+			return discourseAPI.getCatList().then(cats =>
+				u.async
+					.find(cats, cat =>
+						discourseAPI._newTags(tags, cat.id).then(
+							() => true,
+							e => {
+								console.log(
+									'discourseAPI.newTags(): cannot create topic.',
+									e
+								)
+								return false
+							}
+						)
+					)
+					.then(foundCat => {
+						if (!foundCat) {
+							throw 'discourseAPI.newTags(): could not find a category where creating a topic is allowed.'
+						} else {
+							console.log(
+								'discourseAPI.newTags(): found a category to create a topic.',
+								foundCat
+							)
+						}
+					})
+			)
+		})
 	},
 
 	/*

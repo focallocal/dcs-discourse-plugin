@@ -547,58 +547,21 @@ export class DcsIFrame {
 			? `?${baseQueryParts.join('&')}`
 			: ''
 
-		// ========================================
-		// PRE-WARM PERMISSION CACHE FOR HIDDEN CATEGORY
-		// This is critical for Discourse 3.6+ to allow secured category topics
-		// to appear in tag intersections. The Guardian permission system requires
-		// the category to be "visited" before tag intersection will return topics.
-		// ========================================
-		const prewarmCategoryPermission = () => {
-			// Get the category that was last set via onSetRouteProps
-			const appCtrl = this.container.lookup('controller:application')
-			const hiddenCategory = appCtrl?.site?.categories?.find(
-				c => c && c.name && c.name.toLowerCase() === 'hidden'
-			)
-			
-			if (hiddenCategory) {
-				const categoryId = hiddenCategory.id
-				console.debug('[Docuss] Pre-warming category permission cache', {
-					categoryId,
-					categoryName: hiddenCategory.name
-				})
-				
-				// Make a request to the category endpoint to establish permissions
-				return discourseAPI._request({
-					method: 'GET',
-					path: `/c/${categoryId}.json`
-				}).then(() => {
-					console.debug('[Docuss] Category permission cache warmed successfully')
-				}).catch(e => {
-					console.warn('[Docuss] Failed to warm category permission cache:', e)
-					// Don't block navigation on permission warming failure
-				})
-			}
-			return Promise.resolve()
-		}
-
 		// Case WITH_SPLIT_BAR + DISCUSS
 		if (interactMode === 'DISCUSS') {
-			prewarmCategoryPermission().then(() => {
-				this._goToPathFromClient({
-					path: `/tags/intersection/dcs-discuss/${dcsTag}${intersectionQuery}`,
-					hash: route.hash,
-					mode,
-					clientContext
-				})
+			this._goToPathFromClient({
+				path: `/tags/intersection/dcs-discuss/${dcsTag}${intersectionQuery}`,
+				hash: route.hash,
+				mode,
+				clientContext
 			})
 			return
 		}
 
 		// Case WITH_SPLIT_BAR + COMMENT
-		prewarmCategoryPermission().then(() => {
-			discourseAPI
-				.getTopicList({ tag: dcsTag })
-				.then(topicList => {
+		discourseAPI
+			.getTopicList({ tag: dcsTag })
+			.then(topicList => {
 					// Case there's no topic with this tag yet: see next "then"
 					if (!topicList.length) {
 						return 'not found'
@@ -624,19 +587,18 @@ export class DcsIFrame {
 					})
 
 					return 'ok'
-				}, e => 'not found')
-				.then(res => {
-					// Case there's no topic with this tag yet
-					if (res === 'not found') {
-						this._goToPathFromClient({
-							path: `/tags/intersection/dcs-comment/${dcsTag}${intersectionQuery}`,
-							hash: route.hash,
-							mode,
-							clientContext
-						})
-					}
-				})
-		})
+			}, e => 'not found')
+			.then(res => {
+				// Case there's no topic with this tag yet
+				if (res === 'not found') {
+					this._goToPathFromClient({
+						path: `/tags/intersection/dcs-comment/${dcsTag}${intersectionQuery}`,
+						hash: route.hash,
+						mode,
+						clientContext
+					})
+				}
+			})
 	}
 
 	//----------------------------------------------------------------------------
