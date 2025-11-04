@@ -1034,6 +1034,47 @@ export class DcsIFrame {
 			shouldSetTopicNotifications
 		})
 
+		// ========================================
+		// PRE-CREATE TAGS FOR LOW-TRUST USERS
+		// The page-specific tag (e.g., dcs-m_2d-stories) must be created by an admin
+		// before low-trust users can use it in their topics. If we don't pre-create it,
+		// Discourse will silently drop the tag and only keep dcs-discuss.
+		// This ensures both tags exist before the topic is created.
+		// ========================================
+		console.debug('[Docuss] Pre-creating tags before topic creation', { tags })
+		discourseAPI.newTags(tags).then(
+			() => {
+				console.debug('[Docuss] Tags pre-created successfully', { tags })
+			},
+			e => {
+				// Don't fail - tags might already exist
+				console.warn('[Docuss] Tag pre-creation warning (continuing)', {
+					tags,
+					error: e
+				})
+			}
+		).finally(() => {
+			// Create the topic after tag pre-creation attempt (success or failure)
+			console.debug('[Docuss] Now creating topic with tags', { tags })
+			this._createTopicWithPreCreatedTags({
+				title,
+				body,
+				catId,
+				tags,
+				tag,
+				targetLevel,
+				shouldSetTopicNotifications,
+				pageName,
+				triggerId
+			})
+		})
+	}
+
+	/**
+	 * Internal helper to create topic after tags have been pre-created
+	 * @private
+	 */
+	_createTopicWithPreCreatedTags({ title, body, catId, tags, tag, targetLevel, shouldSetTopicNotifications, pageName, triggerId }) {
 		// Create the topic
 		discourseAPI.newTopic({ title, body, catId, tags }).then(
 			createdPost => {

@@ -93,7 +93,19 @@ export const discourseAPI = {
 	getTopicList({ tag }) {
 		return discourseAPI
 			._request({ method: 'GET', path: `/tags/${tag}.json` })
-			.then(tagObj => tagObj['topic_list']['topics'])
+			.then(tagObj => {
+				const topics = tagObj['topic_list']['topics']
+				console.debug('[Docuss] getTopicList response', {
+					tag,
+					topicCount: topics.length,
+					topics: topics.map(t => ({
+						id: t.id,
+						title: t.title,
+						tags: t.tags
+					}))
+				})
+				return topics
+			})
 	},
 
 	// Beware:
