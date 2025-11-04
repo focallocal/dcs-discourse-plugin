@@ -92,7 +92,7 @@ export const discourseAPI = {
 
 	getTopicList({ tag }) {
 		return discourseAPI
-			._request({ method: 'GET', path: `/tags/${tag}.json` })
+			._request({ method: 'GET', path: `/tags/${tag}.json?include_secured=true` })
 			.then(tagObj => tagObj['topic_list']['topics'])
 	},
 

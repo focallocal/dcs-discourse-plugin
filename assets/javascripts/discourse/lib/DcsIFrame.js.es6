@@ -535,12 +535,21 @@ export class DcsIFrame {
 
 		const { pageName, interactMode, triggerId } = route
 		const dcsTag = DcsTag.build({ pageName, triggerId })
-		const queryParams = route.layout === 2 ? '?r=false' : ''
+		const baseQueryParts = []
+		if (route.layout === 2) {
+			baseQueryParts.push('r=false')
+		}
+		const intersectionQueryParts = baseQueryParts.slice()
+		intersectionQueryParts.push('include_secured=true')
+		const intersectionQuery = `?${intersectionQueryParts.join('&')}`
+		const topicQuery = baseQueryParts.length
+			? `?${baseQueryParts.join('&')}`
+			: ''
 
 		// Case WITH_SPLIT_BAR + DISCUSS
 		if (interactMode === 'DISCUSS') {
 			this._goToPathFromClient({
-				path: `/tags/intersection/dcs-discuss/${dcsTag}${queryParams}`,
+				path: `/tags/intersection/dcs-discuss/${dcsTag}${intersectionQuery}`,
 				hash: route.hash,
 				mode,
 				clientContext
@@ -570,7 +579,7 @@ export class DcsIFrame {
 				// intermediate route "topicBySlugOrId" that never resolves (i.e.
 				// transition.then() is never called)
 				this._goToPathFromClient({
-					path: `/t/${topic.slug}/${topic.id}${queryParams}`,
+					path: `/t/${topic.slug}/${topic.id}${topicQuery}`,
 					hash: route.hash,
 					mode,
 					clientContext
@@ -582,7 +591,7 @@ export class DcsIFrame {
 				// Case there's no topic with this tag yet
 				if (res === 'not found') {
 					this._goToPathFromClient({
-						path: `/tags/intersection/dcs-comment/${dcsTag}${queryParams}`,
+						path: `/tags/intersection/dcs-comment/${dcsTag}${intersectionQuery}`,
 						hash: route.hash,
 						mode,
 						clientContext
