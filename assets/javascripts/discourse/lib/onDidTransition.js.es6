@@ -95,8 +95,13 @@ function onDidTransition3({ container, iframe, routeName, queryParamsOnly }) {
         const { pageName, triggerId } = parsed
         const isCommentMode = model.tag.id === 'dcs-comment'
         const interactMode = isCommentMode ? 'COMMENT' : 'DISCUSS'
-        const layout = container.dcsLayout.getShowRightQP() ? 3 : 2
-        console.log('→ Setting layout to:', layout, 'for mode:', interactMode)
+        // CRITICAL FIX: Check if URL has explicit ?r= param
+        const router = container.lookup('service:router')
+        const currentUrl = router?.currentURL || ''
+        const hasExplicitRParam = currentUrl.includes('?r=') || currentUrl.includes('&r=')
+        // Default to split view (layout 2) unless explicitly set to ?r=true
+        const layout = hasExplicitRParam && container.dcsLayout.getShowRightQP() ? 3 : 2
+        console.log('→ Setting layout to:', layout, 'for mode:', interactMode, '(hasRParam:', hasExplicitRParam, ')')
         const dcsRoute = { layout, pageName, triggerId, interactMode }
         const hasRedirected = iframe.didTransition(dcsRoute)
         if (hasRedirected) {
@@ -132,7 +137,12 @@ function onDidTransition3({ container, iframe, routeName, queryParamsOnly }) {
       const { pageName, triggerId } = DcsTag.parse(dcsTag)
       const isCommentMode = model['tags'].includes('dcs-comment')
       const interactMode = isCommentMode ? 'COMMENT' : 'DISCUSS'
-      const layout = container.dcsLayout.getShowRightQP() ? 3 : 2
+      // CRITICAL FIX: Check if URL has explicit ?r= param
+      const router = container.lookup('service:router')
+      const currentUrl = router?.currentURL || ''
+      const hasExplicitRParam = currentUrl.includes('?r=') || currentUrl.includes('&r=')
+      // Default to split view (layout 2) unless explicitly set to ?r=true
+      const layout = hasExplicitRParam && container.dcsLayout.getShowRightQP() ? 3 : 2
       const dcsRoute = { layout, pageName, triggerId, interactMode }
       const hasRedirected = iframe.didTransition(dcsRoute)
       if (hasRedirected) {
