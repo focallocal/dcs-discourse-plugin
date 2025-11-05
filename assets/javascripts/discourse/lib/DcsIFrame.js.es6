@@ -538,10 +538,12 @@ export class DcsIFrame {
 		const baseQueryParts = []
 		// CRITICAL FIX: Always add query param to explicitly control layout
 		// layout 2 = split view (r=false), layout 3 = Discourse only (r=true)
-		if (route.layout === 2) {
-			baseQueryParts.push('r=false')
-		} else if (route.layout === 3) {
+		// Default to layout 2 (split view) if not specified
+		if (route.layout === 3) {
 			baseQueryParts.push('r=true')
+		} else {
+			// layout 2 or undefined → use split view
+			baseQueryParts.push('r=false')
 		}
 		const intersectionQueryParts = baseQueryParts.slice()
 		const intersectionQuery = intersectionQueryParts.length
