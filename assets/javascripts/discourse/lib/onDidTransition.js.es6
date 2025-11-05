@@ -95,8 +95,15 @@ function onDidTransition3({ container, iframe, routeName, queryParamsOnly }) {
         const { pageName, triggerId } = parsed
         const isCommentMode = model.tag.id === 'dcs-comment'
         const interactMode = isCommentMode ? 'COMMENT' : 'DISCUSS'
-        const layout = container.dcsLayout.getShowRightQP() ? 3 : 2
-        console.log('→ Setting layout to:', layout, 'for mode:', interactMode)
+        // CRITICAL FIX: For tag intersections, default to split view (layout 2) unless explicitly set to r=true
+        // Check if query param is explicitly present in URL
+        const router = container.lookup('service:router')
+        const currentUrl = router?.currentURL || window.location.href
+        const hasRParam = currentUrl.includes('?r=') || currentUrl.includes('&r=')
+        const showRightValue = container.dcsLayout.getShowRightQP()
+        // Default to layout 2 (split) for tag intersections unless URL explicitly has ?r=true
+        const layout = hasRParam && showRightValue ? 3 : 2
+        console.log('→ Setting layout to:', layout, 'for mode:', interactMode, '(hasRParam:', hasRParam, 'showRight:', showRightValue, ')')
         const dcsRoute = { layout, pageName, triggerId, interactMode }
         const hasRedirected = iframe.didTransition(dcsRoute)
         if (hasRedirected) {

@@ -536,8 +536,12 @@ export class DcsIFrame {
 		const { pageName, interactMode, triggerId } = route
 		const dcsTag = DcsTag.build({ pageName, triggerId })
 		const baseQueryParts = []
+		// CRITICAL FIX: Always add query param to explicitly control layout
+		// layout 2 = split view (r=false), layout 3 = Discourse only (r=true)
 		if (route.layout === 2) {
 			baseQueryParts.push('r=false')
+		} else if (route.layout === 3) {
+			baseQueryParts.push('r=true')
 		}
 		const intersectionQueryParts = baseQueryParts.slice()
 		const intersectionQuery = intersectionQueryParts.length
