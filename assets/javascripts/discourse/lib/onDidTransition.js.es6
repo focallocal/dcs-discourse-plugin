@@ -99,10 +99,15 @@ function onDidTransition3({ container, iframe, routeName, queryParamsOnly }) {
         const router = container.lookup('service:router')
         const currentUrl = router?.currentURL || ''
         const hasExplicitRParam = currentUrl.includes('?r=') || currentUrl.includes('&r=')
-        // If URL has ?r= param, respect it. Otherwise default to split view (layout 2)
-        const showRight = container.dcsLayout.getShowRightQP()
-        const layout = hasExplicitRParam ? (showRight ? 3 : 2) : 2
-        console.log('→ Setting layout to:', layout, 'for mode:', interactMode, '(hasRParam:', hasExplicitRParam, 'showRight:', showRight, ')')
+        // If URL has ?r= param, read its value. Otherwise default to split view (layout 2)
+        let layout
+        if (hasExplicitRParam) {
+          const showRight = container.dcsLayout.getShowRightQP()
+          layout = showRight ? 3 : 2
+        } else {
+          layout = 2
+        }
+        console.log('→ Setting layout to:', layout, 'for mode:', interactMode, '(hasRParam:', hasExplicitRParam, ')')
         const dcsRoute = { layout, pageName, triggerId, interactMode }
         const hasRedirected = iframe.didTransition(dcsRoute)
         if (hasRedirected) {
@@ -142,9 +147,14 @@ function onDidTransition3({ container, iframe, routeName, queryParamsOnly }) {
       const router = container.lookup('service:router')
       const currentUrl = router?.currentURL || ''
       const hasExplicitRParam = currentUrl.includes('?r=') || currentUrl.includes('&r=')
-      // If URL has ?r= param, respect it. Otherwise default to split view (layout 2)
-      const showRight = container.dcsLayout.getShowRightQP()
-      const layout = hasExplicitRParam ? (showRight ? 3 : 2) : 2
+      // If URL has ?r= param, read its value. Otherwise default to split view (layout 2)
+      let layout
+      if (hasExplicitRParam) {
+        const showRight = container.dcsLayout.getShowRightQP()
+        layout = showRight ? 3 : 2
+      } else {
+        layout = 2
+      }
       const dcsRoute = { layout, pageName, triggerId, interactMode }
       const hasRedirected = iframe.didTransition(dcsRoute)
       if (hasRedirected) {
