@@ -419,7 +419,7 @@ export default {
       }
 
       // ========================================
-      // Composer Opened Handler - Auto-select Hidden Category
+      // Composer Opened Handler - Auto-select General Category
       // ========================================
       api.onAppEvent("composer:opened", () => {
         schedule("afterRender", () => {
@@ -443,20 +443,20 @@ export default {
               const isDocussActive = container.isDocussActive || document.documentElement.classList.contains("dcs2");
               
               if (isDocussActive) {
-                // Find the "hidden" category
+                // Find the "general" category
                 const appCtrl = container.lookup("controller:application");
-                const hiddenCategory = appCtrl?.site?.categories?.find(
-                  c => c && c.name && c.name.toLowerCase() === "hidden"
+                const generalCategory = appCtrl?.site?.categories?.find(
+                  c => c && c.name && c.name.toLowerCase() === "general"
                 );
 
-                if (hiddenCategory) {
-                  model.set("categoryId", hiddenCategory.id);
-                  console.debug("[Docuss] Auto-selected hidden category for new topic", {
-                    categoryId: hiddenCategory.id,
-                    categoryName: hiddenCategory.name
+                if (generalCategory) {
+                  model.set("categoryId", generalCategory.id);
+                  console.debug("[Docuss] Auto-selected general category for new topic", {
+                    categoryId: generalCategory.id,
+                    categoryName: generalCategory.name
                   });
                 } else {
-                  console.warn("[Docuss] Hidden category not found");
+                  console.warn("[Docuss] General category not found");
                 }
               }
             }
