@@ -95,19 +95,8 @@ function onDidTransition3({ container, iframe, routeName, queryParamsOnly }) {
         const { pageName, triggerId } = parsed
         const isCommentMode = model.tag.id === 'dcs-comment'
         const interactMode = isCommentMode ? 'COMMENT' : 'DISCUSS'
-        // CRITICAL FIX: Read ?r= param to determine layout
-        const router = container.lookup('service:router')
-        const currentUrl = router?.currentURL || ''
-        const hasExplicitRParam = currentUrl.includes('?r=') || currentUrl.includes('&r=')
-        // If URL has ?r= param, read its value. Otherwise default to split view (layout 2)
-        let layout
-        if (hasExplicitRParam) {
-          const showRight = container.dcsLayout.getShowRightQP()
-          layout = showRight ? 3 : 2
-        } else {
-          layout = 2
-        }
-        console.log('→ Setting layout to:', layout, 'for mode:', interactMode, '(hasRParam:', hasExplicitRParam, ')')
+        const layout = container.dcsLayout.getShowRightQP() ? 3 : 2
+        console.log('→ Setting layout to:', layout, 'for mode:', interactMode)
         const dcsRoute = { layout, pageName, triggerId, interactMode }
         const hasRedirected = iframe.didTransition(dcsRoute)
         if (hasRedirected) {
@@ -143,18 +132,7 @@ function onDidTransition3({ container, iframe, routeName, queryParamsOnly }) {
       const { pageName, triggerId } = DcsTag.parse(dcsTag)
       const isCommentMode = model['tags'].includes('dcs-comment')
       const interactMode = isCommentMode ? 'COMMENT' : 'DISCUSS'
-      // CRITICAL FIX: Read ?r= param to determine layout
-      const router = container.lookup('service:router')
-      const currentUrl = router?.currentURL || ''
-      const hasExplicitRParam = currentUrl.includes('?r=') || currentUrl.includes('&r=')
-      // If URL has ?r= param, read its value. Otherwise default to split view (layout 2)
-      let layout
-      if (hasExplicitRParam) {
-        const showRight = container.dcsLayout.getShowRightQP()
-        layout = showRight ? 3 : 2
-      } else {
-        layout = 2
-      }
+      const layout = container.dcsLayout.getShowRightQP() ? 3 : 2
       const dcsRoute = { layout, pageName, triggerId, interactMode }
       const hasRedirected = iframe.didTransition(dcsRoute)
       if (hasRedirected) {
