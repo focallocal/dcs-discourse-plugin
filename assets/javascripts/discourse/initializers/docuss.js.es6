@@ -64,7 +64,9 @@ export default {
         return;
       }
       const layout = dcsIFrame.currentRoute?.layout;
-      const active = layout === 2 || layout === 3;
+      // Layout 0 = iframe only (docuss pages), 2 = split, 3 = split with right panel
+      // Layout 1 = Discourse only (non-docuss pages)
+      const active = layout === 0 || layout === 2 || layout === 3;
       setDocussActive(active);
     };
 
@@ -132,7 +134,8 @@ export default {
           
           console.log("Route detection:", { isDocussRoute, isTagsIntersection, isDcsRoute, currentRouteName, currentUrl });
           
-          setDocussActive(isDcsRoute);
+          // Don't set docussActive here - let onDidTransition determine the layout first
+          // then syncDocussActiveFromLayout will set it correctly
           
           if (currentRouteName && dcsIFrame && container.dcsLayout && isDcsRoute) {
             try {
@@ -142,9 +145,14 @@ export default {
                 routeName: currentRouteName,
                 queryParamsOnly: false,
               });
+              // Sync docussActive state based on the layout that was just set
+              syncDocussActiveFromLayout();
             } catch (e) {
               console.warn("Initial onDidTransition failed:", e);
             }
+          } else if (!isDcsRoute) {
+            // Only set to false if we're definitely NOT on a DCS route
+            setDocussActive(false);
           }
 
           if (pendingNavigation) {
