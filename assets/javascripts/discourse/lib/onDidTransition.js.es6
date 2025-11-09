@@ -133,7 +133,25 @@ function onDidTransition3({ container, iframe, routeName, queryParamsOnly }) {
       const isCommentMode = model['tags'].includes('dcs-comment')
       const interactMode = isCommentMode ? 'COMMENT' : 'DISCUSS'
       const layout = container.dcsLayout.getShowRightQP() ? 3 : 2
-      const dcsRoute = { layout, pageName, triggerId, interactMode }
+      
+      // Extract avatar template from topic creator
+      const createdBy = model.details?.created_by
+      const avatarTemplate = createdBy?.avatar_template
+      
+      const dcsRoute = { 
+        layout, 
+        pageName, 
+        triggerId, 
+        interactMode,
+        // Add topic data including avatar
+        topic: {
+          id: model.id,
+          title: model.title,
+          userId: createdBy?.id,
+          username: createdBy?.username,
+          avatarTemplate: avatarTemplate
+        }
+      }
       const hasRedirected = iframe.didTransition(dcsRoute)
       if (hasRedirected) {
         return
