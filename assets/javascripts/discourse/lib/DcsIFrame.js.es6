@@ -34,6 +34,19 @@ export class DcsIFrame {
 		this.additionalRedirects = null
 		this.connectionTimer = null
 
+		// Listen for messages from fl-maps iframe
+		window.addEventListener('message', (event) => {
+			if (event.data && event.data.type === 'navigateTo') {
+				const url = event.data.url
+				console.log('📨 Received navigateTo message:', url)
+				if (url && typeof url === 'string') {
+					// Use Discourse router to navigate
+					const router = container.lookup('service:router')
+					router.transitionTo(url)
+				}
+			}
+		})
+
 		/*
     discourseAPI.newTags(['tete']).then(() => {
       discourseAPI.setTagNotification({ tag: 'tete', notificationLevel: 3 })
