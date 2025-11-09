@@ -385,6 +385,16 @@ export class DcsIFrame {
 				clientContext: this.clientContext,
 				origin: location.origin
 			})
+
+			// Also send via postMessage for direct consumption by fl-maps
+			const iframe = this.container.dcsLayout.left
+			if (iframe && iframe.contentWindow && this.currentRoute.topic) {
+				console.log('📤 Sending dcsRoute postMessage with topic:', this.currentRoute.topic)
+				iframe.contentWindow.postMessage({
+					type: 'dcsRoute',
+					topic: this.currentRoute.topic
+				}, '*')
+			}
 		}
 
 		this.clientContext = null
