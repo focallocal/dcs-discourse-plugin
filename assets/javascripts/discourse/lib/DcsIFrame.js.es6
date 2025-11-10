@@ -7,6 +7,7 @@ import { ComToClient } from './ComToClient'
 import { loadWebsiteDescr, checkRoute, checkRedirect } from './websiteDescr'
 import { discourseAPI } from './discourseAPI'
 import User from 'discourse/models/user'
+import Composer from 'discourse/models/composer'
 import { NotificationLevels } from 'discourse/lib/notification-levels'
 
 //------------------------------------------------------------------------------
@@ -36,14 +37,92 @@ export class DcsIFrame {
 
 		// Listen for messages from fl-maps iframe
 		window.addEventListener('message', (event) => {
-			if (event.data && event.data.type === 'navigateTo') {
+			if (!event.data) {
+				return
+			}
+
+			if (event.data.type === 'navigateTo') {
 				const url = event.data.url
 				console.log('📨 Received navigateTo message:', url)
 				if (url && typeof url === 'string') {
-					// Use Discourse router to navigate
 					const router = container.lookup('service:router')
 					router.transitionTo(url)
 				}
+				return
+			}
+
+			if (event.data.type === 'composeMessage') {
+				const {
+					recipients = 'admins',
+					subject,
+					body,
+					draftKey,
+					pageName,
+					focusComposer = true
+				} = event.data
+
+				const normalizedRecipients = Array.isArray(recipients)
+					? recipients.filter(Boolean).join(', ')
+					: (recipients || 'admins')
+
+				console.log('✉️ Received composeMessage request', {
+					recipients: normalizedRecipients,
+					subject,
+					pageName
+				})
+
+				this.readyPromise
+					.then(() => {
+						let composerCtrl
+						try {
+							composerCtrl = container.lookup('controller:composer')
+						} catch (lookupError) {
+							console.warn('⚠️ Composer controller unavailable', lookupError)
+							return
+						}
+
+						if (!composerCtrl) {
+							console.warn('⚠️ Composer controller not found; cannot open message composer')
+							return
+						}
+
+						let appEvents = null
+						try {
+							appEvents = container.lookup('service:app-events') || null
+						} catch (_e) {
+							appEvents = null
+						}
+
+						const finalSubject = subject || `Message to ${normalizedRecipients}`
+						const finalBody = body || ''
+						const finalDraftKey = draftKey || `docuss-message-${pageName || Date.now()}`
+
+						schedule('afterRender', () => {
+							try {
+								composerCtrl.open({
+									action: Composer.PRIVATE_MESSAGE,
+									draftKey: finalDraftKey,
+									recipients: normalizedRecipients,
+									archetypeId: 'private_message',
+									topicTitle: finalSubject,
+									raw: finalBody
+								})
+
+								if (focusComposer && typeof composerCtrl.focusComposer === 'function') {
+									composerCtrl.focusComposer()
+								} else if (focusComposer && appEvents?.trigger) {
+									appEvents.trigger('composer:focus')
+								}
+							} catch (error) {
+								console.error('❌ Failed to open Discourse composer for Docuss message', error)
+							}
+						})
+					})
+					.catch(error => {
+						console.error('❌ Failed to handle composeMessage request', error)
+					})
+
+				return
 			}
 		})
 
