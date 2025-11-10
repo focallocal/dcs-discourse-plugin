@@ -53,7 +53,7 @@ export class DcsIFrame {
 
 			if (event.data.type === 'composeMessage') {
 				const {
-					recipients = 'admins',
+					recipients = 'moderators',
 					subject,
 					body,
 					draftKey,
@@ -63,7 +63,7 @@ export class DcsIFrame {
 
 				const normalizedRecipients = Array.isArray(recipients)
 					? recipients.filter(Boolean).join(', ')
-					: (recipients || 'admins')
+					: (recipients || 'moderators')
 
 				console.log('✉️ Received composeMessage request', {
 					recipients: normalizedRecipients,
