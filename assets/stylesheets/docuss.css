@@ -24,6 +24,30 @@ html.dcs2[dcs-layout="3"] {
 }
 */
 
+/* Prevent layout shifts from dynamic content loading */
+html.dcs2.dcs-tag #main-outlet,
+html.dcs2.dcs-topic #main-outlet,
+html.dcs2.dcs-comment #main-outlet {
+  min-height: 100vh;
+  max-height: 100vh;
+  overflow: hidden;
+  contain: layout;
+}
+
+/* Prevent notification badges and dropdowns from causing reflow */
+html.dcs2 .header-dropdown-toggle {
+  contain: layout style;
+}
+
+/* Prevent sidebar from affecting iframe layout */
+html.dcs2.dcs-tag .sidebar-wrapper,
+html.dcs2.dcs-topic .sidebar-wrapper,
+html.dcs2.dcs-comment .sidebar-wrapper {
+  position: fixed !important;
+  contain: strict;
+  will-change: auto;
+}
+
 /*******************************************************************************
 	Right
 *******************************************************************************/
@@ -151,6 +175,13 @@ html.dcs2 #dcs-left {
   flex: 1 0 0px;
   overflow: hidden;
   position: relative; /* For positioning the spinner overlay */
+  contain: strict; /* Prevent layout shifts from iframe content */
+}
+
+/* Prevent iframe from causing layout shifts */
+html.dcs2 #dcs-left iframe {
+  contain: layout style;
+  content-visibility: auto;
 }
 
 /* Loading spinner overlay for iframe connection */
