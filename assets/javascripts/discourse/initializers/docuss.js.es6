@@ -40,6 +40,7 @@ export default {
       } else {
         html.classList.remove("dcs2", "dcs-map", "dcs-debug");
         html.classList.remove("dcs-enable-default");
+        html.classList.remove("dcs-tag", "dcs-topic", "dcs-comment", "dcs-discuss");
         html.removeAttribute("dcs-layout");
         if (docussActive && container.dcsLayout) {
           try {
@@ -121,23 +122,19 @@ export default {
           
           // Trigger initial transition after layout is ready
           const router = container.lookup("service:router");
-          const currentRouteName = router?.currentRouteName;
           const currentUrl = window.location.pathname;
-          console.log("Initial route:", currentRouteName, "URL:", currentUrl);
           
           // CRITICAL: Determine if we're on a Docuss route
-          // Check multiple conditions to be absolutely sure
-          const isDocussRoute = currentRouteName && currentRouteName.startsWith('docuss');
-          const isTagsIntersection = currentRouteName === 'tags.intersection' || 
-                                     (currentRouteName?.startsWith('tags') && currentUrl.includes('/intersection/'));
-          const isDcsRoute = isDocussRoute || isTagsIntersection;
+          // Use URL as primary source since currentRouteName may be null on initial load
+          const pathLooksDocuss = currentUrl === "/" || currentUrl === "/docuss" || currentUrl.startsWith("/docuss/");
+          const pathLooksTagsIntersection = currentUrl.includes("/tags/intersection/");
+          const pathLooksTopic = /^\/t\//.test(currentUrl);
+          const isDcsRoute = pathLooksDocuss || pathLooksTagsIntersection || pathLooksTopic;
           
-          console.log("Route detection:", { isDocussRoute, isTagsIntersection, isDcsRoute, currentRouteName, currentUrl });
+          console.log("Initial route detection:", { currentUrl, pathLooksDocuss, pathLooksTagsIntersection, pathLooksTopic, isDcsRoute });
           
-          // Don't set docussActive here - let onDidTransition determine the layout first
-          // then syncDocussActiveFromLayout will set it correctly
-          
-          if (currentRouteName && dcsIFrame && container.dcsLayout && isDcsRoute) {
+          // Wait for router to be ready before checking route name
+          if (dcsIFrame && container.dcsLayout && isDcsRoute) {
             try {
               onDidTransition({
                 container,
@@ -231,10 +228,14 @@ export default {
             container._docussRetryCount = 0
           }
           
-          // Clear any pending connection timers
+          // Clear any pending timers
           if (container._docussConnectionTimer) {
             clearTimeout(container._docussConnectionTimer)
             container._docussConnectionTimer = null
+          }
+          if (container._docussSpinnerTimer) {
+            clearTimeout(container._docussSpinnerTimer)
+            container._docussSpinnerTimer = null
           }
           
           let routeName = resolveRouteName(data);

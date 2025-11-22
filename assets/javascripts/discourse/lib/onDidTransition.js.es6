@@ -39,7 +39,7 @@ function hideSpinner() {
 
 function waitForConnectionAndSetLayout({ container, iframe, layout, dcsRoute, retryCount = 0 }) {
   const maxRetries = 3
-  const retryDelay = 3000 // 3 seconds
+  const retryDelay = 1000 // 1 second for faster response
 
   // Initialize retry count on container if not present
   if (!container._docussRetryCount) {
@@ -54,16 +54,28 @@ function waitForConnectionAndSetLayout({ container, iframe, layout, dcsRoute, re
     return
   }
 
-  console.log(`\u23f3 iframe not connected, showing spinner (attempt ${container._docussRetryCount + 1}/${maxRetries})`)
-  showSpinner()
-
+  console.log(`\u23f3 iframe not connected, waiting for connection (attempt ${container._docussRetryCount + 1}/${maxRetries})`)
+  
   // Store pending layout for later application
   container._docussPendingLayout = { layout, dcsRoute }
+  
+  // Only show spinner if connection takes longer than 500ms (prevents flicker on fast connections)
+  const spinnerTimer = setTimeout(() => {
+    if (!ComToClient.isConnected()) {
+      showSpinner()
+    }
+  }, 500)
 
-  // Clear any existing timeout
+  // Clear any existing timers
   if (container._docussConnectionTimer) {
     clearTimeout(container._docussConnectionTimer)
   }
+  if (container._docussSpinnerTimer) {
+    clearTimeout(container._docussSpinnerTimer)
+  }
+  
+  // Store spinner timer reference
+  container._docussSpinnerTimer = spinnerTimer
 
   // Set timeout for retry or error
   container._docussConnectionTimer = setTimeout(() => {

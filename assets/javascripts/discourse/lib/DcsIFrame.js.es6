@@ -306,13 +306,6 @@ export class DcsIFrame {
 		u.dev.assert(this.descrArray)
 		log('didTransition: ', route)
 
-		// Check if iframe is connected before allowing transitions
-		// This prevents race conditions where layout is set before iframe is ready
-		if (!ComToClient.isConnected() && (route.layout === 2 || route.layout === 3)) {
-			console.log('\u23f3 didTransition: iframe not connected, deferring transition for layout', route.layout)
-			return false
-		}
-
 		//================================
 
 		// resolve empty page name for route "docuss"
@@ -753,6 +746,12 @@ export class DcsIFrame {
 			if (this.container._docussConnectionTimer) {
 				clearTimeout(this.container._docussConnectionTimer)
 				this.container._docussConnectionTimer = null
+			}
+			
+			// Clear spinner timer
+			if (this.container._docussSpinnerTimer) {
+				clearTimeout(this.container._docussSpinnerTimer)
+				this.container._docussSpinnerTimer = null
 			}
 			
 			// Reset retry count
