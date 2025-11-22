@@ -635,7 +635,7 @@ export class DcsIFrame {
 
 		// Case WITH_SPLIT_BAR
 
-		const { pageName, interactMode, triggerId } = route
+		const { pageName, interactMode, triggerId, composerTemplate } = route
 		const dcsTag = DcsTag.build({ pageName, triggerId })
 		const baseQueryParts = []
 		// CRITICAL FIX: Always add query param to explicitly control layout
@@ -647,6 +647,27 @@ export class DcsIFrame {
 			// layout 2 or undefined → use split view
 			baseQueryParts.push('r=false')
 		}
+		
+		// Add composer_template parameter based on explicit composerTemplate or interactMode
+		// This enables the url-composer-templates component to pre-fill text
+		if (composerTemplate) {
+			// If explicitly provided via data-dcs-composer-template, use it
+			baseQueryParts.push(`composer_template=${composerTemplate}`)
+		} else if (interactMode === 'DISCUSS') {
+			// For discuss mode, check if triggerId suggests a specific template
+			// Default to 'report' for general discussions
+			if (triggerId && triggerId.includes('going')) {
+				baseQueryParts.push('composer_template=going')
+			} else if (triggerId && triggerId.includes('invite')) {
+				baseQueryParts.push('composer_template=invite')
+			} else {
+				baseQueryParts.push('composer_template=report')
+			}
+		} else if (interactMode === 'COMMENT') {
+			// For comment mode, default to 'report' template
+			baseQueryParts.push('composer_template=report')
+		}
+		
 		const intersectionQueryParts = baseQueryParts.slice()
 		const intersectionQuery = intersectionQueryParts.length
 			? `?${intersectionQueryParts.join('&')}`
