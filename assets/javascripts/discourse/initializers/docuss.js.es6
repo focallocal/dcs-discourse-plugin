@@ -598,6 +598,56 @@ export default {
       // Alt+A toggle is already handled in onAfterRender.js
       // It toggles the dcs-debug class which controls tag/category visibility via CSS
 
+      // ========================================
+      // Sidebar Click Handler - Close Docuss when sidebar clicked
+      // ========================================
+      schedule("afterRender", () => {
+        const handleSidebarClick = (event) => {
+          // Check if we're in a Docuss layout (split or iframe-only modes)
+          const hasDocussLayout = document.documentElement.classList.contains("dcs2");
+          if (!hasDocussLayout) return;
+
+          // Check if click is on sidebar or its children
+          const sidebar = event.target.closest(".sidebar-wrapper, .sidebar-sections, .sidebar-section-link");
+          if (!sidebar) return;
+
+          // Don't interfere with clicks on DCS links
+          if (event.target.closest(".dcs-link-icons")) return;
+
+          // Close Docuss by navigating to the clicked topic/category without Docuss params
+          try {
+            const router = container.lookup("service:router");
+            if (!router) return;
+
+            const currentUrl = window.location.href;
+            const url = new URL(currentUrl);
+            
+            // Check if we have Docuss query params
+            const hasDcsParams = url.searchParams.has('dcs-trigger-id') || 
+                                 url.searchParams.has('dcs-layout') ||
+                                 url.searchParams.has('dcs-interact-mode');
+            
+            if (hasDcsParams) {
+              // Remove all Docuss params
+              url.searchParams.delete('dcs-layout');
+              url.searchParams.delete('dcs-interact-mode');
+              url.searchParams.delete('dcs-trigger-id');
+              
+              const newPath = url.pathname + url.search;
+              console.debug("[Docuss] Sidebar clicked, closing Docuss:", { from: currentUrl, to: newPath });
+              
+              router.transitionTo(newPath);
+            }
+          } catch (e) {
+            console.warn("Failed to handle sidebar click:", e);
+          }
+        };
+
+        // Add click listener to document
+        document.addEventListener("click", handleSidebarClick, true);
+        console.log("✓ Registered sidebar click handler");
+      });
+
       api.onAppEvent("composer:closed", () => {
         try {
           const composerCtrl = container.lookup("controller:composer");
