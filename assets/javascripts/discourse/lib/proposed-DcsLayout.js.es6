@@ -1,5 +1,4 @@
 import { u } from './utils'
-import { ComToClient } from './ComToClient'
 
 export class DcsLayout {
   constructor(appCtrl) {
@@ -53,7 +52,6 @@ export class DcsLayout {
 
   _animateGhost(leftStart, leftEnd, onFinish) {
     if (this.ghost.animate) {
-      // Case the browser supports the Web Animation API
       const anim = this.ghost.animate(
         [{ left: leftStart }, { left: leftEnd }],
         { duration: 200 }
@@ -78,28 +76,6 @@ export class DcsLayout {
 
   setLayout(layout) {
     const html = document.documentElement
-    const previousLayout = this.prevLayout
-    
-    // Get connection state and retry count for logging
-    const isConnected = ComToClient.isConnected()
-    const retryCount = (typeof window !== 'undefined' && 
-                        window.Discourse?.container?._docussRetryCount) || 0
-    
-    let stackSnippet = []
-    try {
-      const stackLines = new Error().stack?.split('\n') || []
-      stackSnippet = stackLines.slice(2, 6)
-    } catch (e) {
-      stackSnippet = ['stack unavailable', e && e.message]
-    }
-    
-    console.debug('[Docuss] setLayout requested', {
-      from: previousLayout,
-      to: layout,
-      iframeConnected: isConnected,
-      retryCount: retryCount,
-      stack: stackSnippet
-    })
     
     switch (this.prevLayout) {
       case null:
@@ -178,19 +154,10 @@ export class DcsLayout {
     if (this.saveMobileView === null) {
       this.saveMobileView = this.appCtrl.site.mobileView || false
     }
-    // NOTE: In Discourse 3.6/Ember 6, mobileView is a getter-only property and cannot be set
-    // const forceMobileView = this.saveMobileView || layout === 2 || layout === 3
-    // this.appCtrl.site.set('mobileView', forceMobileView)
+    const forceMobileView = this.saveMobileView || layout === 2 || layout === 3
+    this.appCtrl.site.set('mobileView', forceMobileView)
 
     this.prevLayout = layout
-
-    if (layout === 1) {
-      html.classList.remove('dcs2')
-      html.classList.remove('dcs-map')
-    } else {
-      html.classList.add('dcs2')
-      html.classList.add('dcs-map')
-    }
   }
 }
 

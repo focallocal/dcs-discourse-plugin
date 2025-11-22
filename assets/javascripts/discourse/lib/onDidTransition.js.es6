@@ -1,6 +1,108 @@
 import { u } from './utils'
 import { DcsTag } from './DcsTag'
+import { ComToClient } from './ComToClient'
 import User from 'discourse/models/user'
+
+//------------------------------------------------------------------------------
+// Helper functions for connection state management
+//------------------------------------------------------------------------------
+
+function showSpinner() {
+  let spinner = document.getElementById('dcs-loading-spinner')
+  if (!spinner) {
+    const left = document.getElementById('dcs-left')
+    if (left) {
+      spinner = document.createElement('div')
+      spinner.id = 'dcs-loading-spinner'
+      spinner.innerHTML = '<div class="spinner"></div>'
+      left.appendChild(spinner)
+    }
+  }
+  if (spinner) {
+    // Use setTimeout to ensure CSS transition triggers
+    setTimeout(() => spinner.classList.add('visible'), 10)
+  }
+}
+
+function hideSpinner() {
+  const spinner = document.getElementById('dcs-loading-spinner')
+  if (spinner) {
+    spinner.classList.remove('visible')
+    // Remove after transition completes
+    setTimeout(() => {
+      if (spinner.parentNode) {
+        spinner.parentNode.removeChild(spinner)
+      }
+    }, 250)
+  }
+}
+
+function waitForConnectionAndSetLayout({ container, iframe, layout, dcsRoute, retryCount = 0 }) {
+  const maxRetries = 3
+  const retryDelay = 3000 // 3 seconds
+
+  // Initialize retry count on container if not present
+  if (!container._docussRetryCount) {
+    container._docussRetryCount = 0
+  }
+
+  if (ComToClient.isConnected()) {
+    console.log('\u2713 iframe connected, setting layout immediately')
+    hideSpinner()
+    container._docussRetryCount = 0
+    container.dcsLayout.setLayout(layout)
+    return
+  }
+
+  console.log(`\u23f3 iframe not connected, showing spinner (attempt ${container._docussRetryCount + 1}/${maxRetries})`)
+  showSpinner()
+
+  // Store pending layout for later application
+  container._docussPendingLayout = { layout, dcsRoute }
+
+  // Clear any existing timeout
+  if (container._docussConnectionTimer) {
+    clearTimeout(container._docussConnectionTimer)
+  }
+
+  // Set timeout for retry or error
+  container._docussConnectionTimer = setTimeout(() => {
+    container._docussRetryCount++
+    
+    if (container._docussRetryCount < maxRetries) {
+      const remaining = (maxRetries - container._docussRetryCount) * (retryDelay / 1000)
+      console.warn(`\u26a0\ufe0f Connection retry ${container._docussRetryCount}/${maxRetries}, estimated ${remaining} seconds remaining`)
+      
+      // Trigger iframe reload by calling didTransition again
+      iframe.didTransition(dcsRoute)
+      
+      // Retry connection check
+      waitForConnectionAndSetLayout({ container, iframe, layout, dcsRoute, retryCount: container._docussRetryCount })
+    } else {
+      console.error('\u274c Max connection retries reached, showing error')
+      hideSpinner()
+      
+      // Store the target route for retry button
+      container._docussFailedRoute = dcsRoute
+      
+      // Display error with retry button
+      iframe._displayError(
+        'Connection Error',
+        `Unable to connect to the embedded website after ${maxRetries} attempts.<br/>` +
+        `Please check your internet connection.<br/><br/>` +
+        `<button onclick="window.location.reload()" style="padding:8px 16px; background:#00a955; color:white; border:none; border-radius:4px; cursor:pointer; font-size:14px;">Reload Page</button>`
+      )
+      
+      // Auto-dismiss after 10 seconds and return to layout 0
+      setTimeout(() => {
+        container.dcsLayout.setLayout(0)
+        container._docussRetryCount = 0
+        delete container._docussPendingLayout
+        delete container._docussFailedRoute
+      }, 10000)
+    }
+  }, retryDelay)
+}
 
 //------------------------------------------------------------------------------
 
@@ -109,7 +211,9 @@ function onDidTransition3({ container, iframe, routeName, queryParamsOnly }) {
           document.documentElement.classList.add('dcs-tag', modeClass)
           afterRender().then(() => modifyTagPage(isCommentMode))
         }
-        container.dcsLayout.setLayout(layout)
+        
+        // Check connection state before setting layout
+        waitForConnectionAndSetLayout({ container, iframe, layout, dcsRoute })
         return
       } else {
         console.log('⚠️ Failed to parse dcsTag')
@@ -162,7 +266,9 @@ function onDidTransition3({ container, iframe, routeName, queryParamsOnly }) {
         document.documentElement.classList.add('dcs-topic', modeClass)
         afterRender().then(() => modifyTopicPage(dcsTag, isCommentMode))
       }
-      container.dcsLayout.setLayout(layout)
+      
+      // Check connection state before setting layout
+      waitForConnectionAndSetLayout({ container, iframe, layout, dcsRoute })
       return
     }
   }

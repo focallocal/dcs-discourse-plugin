@@ -225,6 +225,18 @@ export default {
       // ========================================
       const handlePageChange = (data) => {
         try {
+          // Reset retry count on manual navigation
+          if (container._docussRetryCount) {
+            console.log('\u27f3 Resetting retry count on navigation')
+            container._docussRetryCount = 0
+          }
+          
+          // Clear any pending connection timers
+          if (container._docussConnectionTimer) {
+            clearTimeout(container._docussConnectionTimer)
+            container._docussConnectionTimer = null
+          }
+          
           let routeName = resolveRouteName(data);
           
           // Extract URL

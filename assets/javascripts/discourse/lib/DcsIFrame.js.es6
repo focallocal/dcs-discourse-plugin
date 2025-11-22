@@ -306,6 +306,13 @@ export class DcsIFrame {
 		u.dev.assert(this.descrArray)
 		log('didTransition: ', route)
 
+		// Check if iframe is connected before allowing transitions
+		// This prevents race conditions where layout is set before iframe is ready
+		if (!ComToClient.isConnected() && (route.layout === 2 || route.layout === 3)) {
+			console.log('\u23f3 didTransition: iframe not connected, deferring transition for layout', route.layout)
+			return false
+		}
+
 		//================================
 
 		// resolve empty page name for route "docuss"
@@ -735,6 +742,38 @@ export class DcsIFrame {
 			u.logError(error)
 			this._displayError(error, `Use the top left logo to come back to safety.`)
 			return
+		}
+
+		// Apply any pending layout from connection retry logic
+		if (this.container._docussPendingLayout) {
+			const { layout } = this.container._docussPendingLayout
+			console.log('\u2713 iframe connected, applying pending layout:', layout)
+			
+			// Clear connection timeout
+			if (this.container._docussConnectionTimer) {
+				clearTimeout(this.container._docussConnectionTimer)
+				this.container._docussConnectionTimer = null
+			}
+			
+			// Reset retry count
+			this.container._docussRetryCount = 0
+			
+			// Hide spinner
+			const spinner = document.getElementById('dcs-loading-spinner')
+			if (spinner) {
+				spinner.classList.remove('visible')
+				setTimeout(() => {
+					if (spinner.parentNode) {
+						spinner.parentNode.removeChild(spinner)
+					}
+				}, 250)
+			}
+			
+			// Set the layout
+			this.container.dcsLayout.setLayout(layout)
+			
+			// Clear pending layout
+			delete this.container._docussPendingLayout
 		}
 
 		// Check that the layout is WITH_SPLIT_BAR. If it is not, it doesn't mean
