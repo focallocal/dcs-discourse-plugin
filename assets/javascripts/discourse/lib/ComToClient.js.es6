@@ -200,7 +200,8 @@ function serializeRoute(route) {
     ['hash']: route.hash,
     ['interactMode']: route.interactMode,
     ['triggerId']: route.triggerId,
-    ['pathname']: route.pathname
+    ['pathname']: route.pathname,
+    ['composerTemplate']: route.composerTemplate
   }
 }
 

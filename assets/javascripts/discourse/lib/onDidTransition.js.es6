@@ -248,7 +248,18 @@ function onDidTransition3({ container, iframe, routeName, queryParamsOnly }) {
       const { pageName, triggerId } = DcsTag.parse(dcsTag)
       const isCommentMode = model['tags'].includes('dcs-comment')
       const interactMode = isCommentMode ? 'COMMENT' : 'DISCUSS'
-      const layout = container.dcsLayout.getShowRightQP() ? 3 : 2
+      
+      // Check URL for r parameter to determine layout
+      const urlParams = new URLSearchParams(window.location.search)
+      const rParam = urlParams.get('r')
+      let layout
+      if (rParam === 'false') {
+        layout = 1 // Close Docuss (full client)
+      } else if (rParam === 'true') {
+        layout = 3 // Discourse only (no iframe)
+      } else {
+        layout = container.dcsLayout.getShowRightQP() ? 3 : 2 // Default behavior
+      }
       
       // Extract avatar template from topic creator
       const createdBy = model.details?.created_by
