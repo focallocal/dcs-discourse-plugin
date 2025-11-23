@@ -124,7 +124,9 @@ export function onAfterRender(container) {
             const triggerId = dcsIFrame.currentRoute.triggerId
             if (pageName && triggerId) {
               // Navigate back to the tags intersection page
-              const tagIntersectionUrl = `/tags/intersection/dcs-discuss/dcs-m_3f-${triggerId}`
+              // pageName format is like "m_2" or "m_3f", triggerId is like "going"
+              const pageNamePart = pageName.replace('m_', '')
+              const tagIntersectionUrl = `/tags/intersection/dcs-discuss/dcs-m_${pageNamePart}-${triggerId}`
               if (routerService?.transitionTo) {
                 routerService.transitionTo(tagIntersectionUrl)
                 return
