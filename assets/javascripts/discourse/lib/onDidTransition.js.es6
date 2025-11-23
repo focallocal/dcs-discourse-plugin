@@ -265,21 +265,30 @@ function onDidTransition3({ container, iframe, routeName, queryParamsOnly }) {
       const createdBy = model.details?.created_by
       const avatarTemplate = createdBy?.avatar_template
       
+      // Build the route WITHOUT topic data (for validation)
       const dcsRoute = { 
         layout, 
         pageName, 
         triggerId, 
-        interactMode,
-        // Add topic data including avatar
-        topic: {
-          id: model.id,
-          title: model.title,
-          userId: createdBy?.id,
-          username: createdBy?.username,
-          avatarTemplate: avatarTemplate
-        }
+        interactMode
       }
+      
+      // Build topic data separately (to be added AFTER didTransition)
+      const topicData = {
+        id: model.id,
+        title: model.title,
+        userId: createdBy?.id,
+        username: createdBy?.username,
+        avatarTemplate: avatarTemplate
+      }
+      
       const hasRedirected = iframe.didTransition(dcsRoute)
+      
+      // Add topic data to currentRoute AFTER didTransition (so it doesn't fail validation)
+      if (iframe.currentRoute) {
+        iframe.currentRoute.topic = topicData
+      }
+      
       if (hasRedirected) {
         return
       }
