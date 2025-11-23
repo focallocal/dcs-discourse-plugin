@@ -105,10 +105,40 @@ export function onAfterRender(container) {
   if (splitbar) {
     splitbar.addEventListener('click', () => {
       const showRight = !container.dcsLayout.getShowRightQP()
+      
       try {
         const routerService = initialRouterService?.transitionTo
           ? initialRouterService
           : container.lookup?.('service:router')
+        
+        // Check if we're on a topic route (layout 3)
+        // If so, clicking the slider should close Docuss entirely by navigating away
+        const currentRouteName = routerService?.currentRouteName || routerService?.currentRoute?.name
+        
+        if (currentRouteName && currentRouteName.startsWith('topic.') && !showRight) {
+          // User is on a topic and wants to close Docuss (showRight will become false)
+          // Navigate to the tags intersection page to close the topic
+          const dcsIFrame = container.dcsIFrame
+          if (dcsIFrame && dcsIFrame.currentRoute) {
+            const pageName = dcsIFrame.currentRoute.pageName
+            const triggerId = dcsIFrame.currentRoute.triggerId
+            if (pageName && triggerId) {
+              // Navigate back to the tags intersection page
+              const tagIntersectionUrl = `/tags/intersection/dcs-discuss/dcs-m_3f-${triggerId}`
+              if (routerService?.transitionTo) {
+                routerService.transitionTo(tagIntersectionUrl)
+                return
+              }
+            }
+          }
+          // Fallback: try to go to /latest or homepage
+          if (routerService?.transitionTo) {
+            routerService.transitionTo('/latest')
+            return
+          }
+        }
+        
+        // Normal case: just toggle the showRight query param
         if (routerService?.transitionTo) {
           routerService.transitionTo({ queryParams: { showRight } })
           return
