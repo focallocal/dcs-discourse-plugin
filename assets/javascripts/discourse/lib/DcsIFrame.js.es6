@@ -43,10 +43,14 @@ export class DcsIFrame {
 
 			if (event.data.type === 'navigateTo') {
 				const url = event.data.url
-				console.log('📨 Received navigateTo message:', url)
+				const delay = event.data.delay || 0
+				console.log('📨 Received navigateTo message:', url, delay ? `(delayed ${delay}ms)` : '')
 				if (url && typeof url === 'string') {
 					const router = container.lookup('service:router')
-					router.transitionTo(url)
+					// Add delay if specified (useful when page was just created)
+					setTimeout(() => {
+						router.transitionTo(url)
+					}, delay)
 				}
 				return
 			}
