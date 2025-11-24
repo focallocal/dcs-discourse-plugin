@@ -109,6 +109,8 @@ export default {
       // Initialize iframe - pass BOTH app and container
       try {
         dcsIFrame = new DcsIFrame(app, container);
+        // Store in container so splitbar handler can access it
+        container.dcsIFrame = dcsIFrame;
       } catch (e) {
         console.error("Failed to initialize DcsIFrame:", e);
         return;
