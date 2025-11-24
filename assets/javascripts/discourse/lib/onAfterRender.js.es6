@@ -123,10 +123,10 @@ export function onAfterRender(container) {
             const pageName = dcsIFrame.currentRoute.pageName
             const triggerId = dcsIFrame.currentRoute.triggerId
             if (pageName && triggerId) {
-              // Navigate back to the tags intersection page
+              // Navigate back to the tags intersection page with r=false to force split view (layout 2)
               // pageName format is like "m_2" or "m_3f", triggerId is like "going"
               const pageNamePart = pageName.replace('m_', '')
-              const tagIntersectionUrl = `/tags/intersection/dcs-discuss/dcs-m_${pageNamePart}-${triggerId}`
+              const tagIntersectionUrl = `/tags/intersection/dcs-discuss/dcs-m_${pageNamePart}-${triggerId}?r=false`
               if (routerService?.transitionTo) {
                 routerService.transitionTo(tagIntersectionUrl)
                 return
