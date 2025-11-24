@@ -119,6 +119,39 @@ Just use the fact that, whether from a Discourse menu or from your website:
 - `docuss hide tags`: hide tags everywhere in Discourse.
 - `docuss hide hamburger menu`: hide the Discourse hamburger menu.
 
+## Category Assignment with URL Composer Templates
+
+When using the `url-composer-templates` theme component alongside this plugin, category assignment is handled automatically to prevent conflicts:
+
+### How It Works
+
+- **Template-based forms** (e.g., `/tags/intersection/*` URLs): The `url-composer-templates` component assigns the "Hidden" category before opening the composer
+- **Manual composer opens**: Users can select categories normally
+- **Other Docuss pages** (e.g., whitepaper): Standard Docuss behavior applies
+
+### Default Category for Template Forms
+
+By default, template forms auto-select the **"Hidden"** category. To change this:
+
+1. Open `url-composer-templates/javascripts/discourse/api-initializers/z-auto-open-composer.js`
+2. Find the section labeled "CATEGORY AUTO-SELECTION FOR TEMPLATE FORMS"
+3. Modify the category finder. For example, to use "General" instead:
+   ```javascript
+   const targetCategory = site.categories.find(
+     (c) => c && c.name && c.name.toLowerCase() === "general"
+   );
+   ```
+
+### Excluding Category Auto-Selection
+
+To disable automatic category selection for template forms:
+
+1. In `z-auto-open-composer.js`, find the category auto-selection code
+2. Comment out or remove the "hidden" category lookup block
+3. Set `categoryId = null` to let users choose manually
+
+This ensures templates work smoothly while maintaining flexibility for different Docuss use cases.
+
 ## Known limitations when using tags
 
 Docuss relies on automatically generated tags to achieve its magic (generated
