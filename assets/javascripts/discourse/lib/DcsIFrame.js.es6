@@ -346,6 +346,17 @@ export class DcsIFrame {
 
 		//================================
 
+		// Pause video when leaving the iframe page entirely (layout changes from 0 to non-0)
+		// Layout 0 = iframe only (event pages with video)
+		// Layout 2/3 = split view or Discourse only (forum discussions)
+		// This prevents videos from continuing to play when navigating to forum
+		if (this.currentRoute && 
+		    this.currentRoute.layout === 0 && 
+		    route.layout !== 0 &&
+		    this.currentRoute.pageName === route.pageName) {
+			this._pauseVideoInIframe()
+		}
+
 		this.currentRoute = route
 
 		//================================
@@ -490,6 +501,21 @@ export class DcsIFrame {
 		}
 
 		this.clientContext = null
+	}
+
+	_pauseVideoInIframe() {
+		// Pause any playing videos when navigating away from an event page
+		const iframe = this.container.dcsLayout?.left
+		if (iframe && iframe.contentWindow) {
+			try {
+				iframe.contentWindow.postMessage({
+					type: 'pauseVideo'
+				}, '*')
+				console.log('📤 Sent pauseVideo message to iframe')
+			} catch (e) {
+				console.warn('Failed to send pauseVideo message:', e)
+			}
+		}
 	}
 
 	_loadPage({ url, onConnectedOrReconnected }) {
