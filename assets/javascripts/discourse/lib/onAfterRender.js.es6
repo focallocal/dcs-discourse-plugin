@@ -119,19 +119,26 @@ export function onAfterRender(container) {
           // User is on a topic and wants to close Docuss (showRight will become false)
           // Navigate to the tags intersection page to close the topic
           const dcsIFrame = container.dcsIFrame
+          console.log('[Docuss Splitbar] Attempting to close, dcsIFrame:', dcsIFrame)
           if (dcsIFrame && dcsIFrame.currentRoute) {
             const pageName = dcsIFrame.currentRoute.pageName
             const triggerId = dcsIFrame.currentRoute.triggerId
+            console.log('[Docuss Splitbar] Route info:', { pageName, triggerId })
             if (pageName && triggerId) {
               // Navigate back to the tags intersection page
               // pageName format is like "m_2" or "m_3f", triggerId is like "going"
               const pageNamePart = pageName.replace('m_', '')
               const tagIntersectionUrl = `/tags/intersection/dcs-discuss/dcs-m_${pageNamePart}-${triggerId}`
+              console.log('[Docuss Splitbar] Navigating to:', tagIntersectionUrl)
               if (routerService?.transitionTo) {
                 routerService.transitionTo(tagIntersectionUrl)
                 return
               }
+            } else {
+              console.warn('[Docuss Splitbar] Missing pageName or triggerId, falling back to /latest')
             }
+          } else {
+            console.warn('[Docuss Splitbar] No dcsIFrame or currentRoute, falling back to /latest')
           }
           // Fallback: try to go to /latest or homepage
           if (routerService?.transitionTo) {
