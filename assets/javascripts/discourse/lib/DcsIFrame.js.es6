@@ -34,6 +34,7 @@ export class DcsIFrame {
 		this.clientContext = null
 		this.additionalRedirects = null
 		this.connectionTimer = null
+		this.pendingTopicPromises = new Map()
 
 		// Listen for messages from fl-maps iframe
 		window.addEventListener('message', (event) => {
@@ -44,14 +45,13 @@ export class DcsIFrame {
 			if (event.data.type === 'navigateTo') {
 				const url = event.data.url
 				const delay = event.data.delay || 0
-				console.log('📨 Received navigateTo message:', url, delay ? `(delayed ${delay}ms)` : '')
-				if (url && typeof url === 'string') {
-					const router = container.lookup('service:router')
-					// Add delay if specified (useful when page was just created)
-					setTimeout(() => {
-						router.transitionTo(url)
-					}, delay)
-				}
+				const waitForPageName = event.data.waitForPageName
+				const waitTimeout =
+					typeof event.data.waitTimeout === 'number'
+						? event.data.waitTimeout
+						: undefined
+				console.log('📨 Received navigateTo message:', url, delay ? `(delayed ${delay}ms)` : '', waitForPageName ? `(wait for ${waitForPageName})` : '')
+				this._handleNavigateTo({ url, delay, waitForPageName, waitTimeout })
 				return
 			}
 
@@ -1193,93 +1193,208 @@ export class DcsIFrame {
 			shouldSetTopicNotifications
 		})
 
-		// Pre-create tags if they don't exist yet
-		// This uses the "create temporary topic" approach which works for all users
-		// with "create tag allowed groups" permissions
-		console.debug('[Docuss] Pre-creating tags if needed', { tags })
-		discourseAPI.newTags(tags).then(
-			() => {
-				console.debug('[Docuss] Tag pre-creation succeeded or tags already exist')
-			},
-			e => {
-				console.warn('[Docuss] Tag pre-creation failed, will try anyway during topic creation', e)
-			}
-		).finally(() => {
-			// Always create the topic after tag pre-creation attempt (success or failure)
+		const createTopic = () => {
 			console.debug('[Docuss] Now creating topic with tags', { tags })
-			
-			// Create the topic
-			discourseAPI.newTopic({ title, body, catId, tags }).then(
-			createdPost => {
-				if (!shouldSetTopicNotifications) {
-					console.debug('[Docuss] onCreateTopic skipping notification setup')
-					return
-				}
 
-				const notificationTags = ['dcs-discuss', tag]
-				const tagPromises = notificationTags.map(notificationTag =>
-					discourseAPI
-						.setTagNotification({
-							tag: notificationTag,
-							notificationLevel: targetLevel
-						})
-						.catch(e => {
-							u.logError(
-								`Failed to set the notification level for tag ${notificationTag}: ${e}`
-							)
-						})
-				)
-				console.debug('[Docuss] onCreateTopic tag notifications requested', {
-					notificationTags,
-					targetLevel
-				})
+			return discourseAPI.newTopic({ title, body, catId, tags }).then(
+				createdPost => {
+					if (!shouldSetTopicNotifications) {
+						console.debug('[Docuss] onCreateTopic skipping notification setup')
+						return createdPost
+					}
 
-				const topicId = createdPost && createdPost['topic_id']
-				if (topicId) {
-					console.debug('[Docuss] onCreateTopic topic created', {
-						topicId,
-						notificationLevel: targetLevel
-					})
-					tagPromises.push(
+					const notificationTags = ['dcs-discuss', tag]
+					const tagPromises = notificationTags.map(notificationTag =>
 						discourseAPI
-							.setTopicNotification({
-								topicId,
+							.setTagNotification({
+								tag: notificationTag,
 								notificationLevel: targetLevel
 							})
 							.catch(e => {
 								u.logError(
-									`Failed to set the notification level for topic ${topicId}: ${e}`
+									`Failed to set the notification level for tag ${notificationTag}: ${e}`
 								)
 							})
 					)
-				} else {
-					u.logError('Failed to set the topic notification level: missing topic_id in response')
-					console.warn('[Docuss] onCreateTopic missing topic_id in response', {
-						createdPost
-					})
-				}
-
-				return Promise.all(tagPromises).then(() => {
-					console.debug('[Docuss] onCreateTopic notification promises resolved', {
-						topicId,
+					console.debug('[Docuss] onCreateTopic tag notifications requested', {
+						notificationTags,
 						targetLevel
 					})
-				})
-			},
-			e => {
-				const tagsStr = JSON.stringify(tags)
-				u.logError(`Failed to create topic with tags ${tagsStr}: ${e}`)
-				console.error('[Docuss] onCreateTopic failed', {
-					error: e,
-					tags,
-					title,
-					pageName
-				})
-			}
-		) // End of newTopic promise
-		}) // End of finally block
+
+					const topicId = createdPost && createdPost['topic_id']
+					if (topicId) {
+						console.debug('[Docuss] onCreateTopic topic created', {
+							topicId,
+							notificationLevel: targetLevel
+						})
+						tagPromises.push(
+							discourseAPI
+								.setTopicNotification({
+									topicId,
+									notificationLevel: targetLevel
+								})
+								.catch(e => {
+									u.logError(
+										`Failed to set the notification level for topic ${topicId}: ${e}`
+									)
+								})
+						)
+					} else {
+						u.logError('Failed to set the topic notification level: missing topic_id in response')
+						console.warn('[Docuss] onCreateTopic missing topic_id in response', {
+							createdPost
+						})
+					}
+
+					return Promise.all(tagPromises).then(() => {
+						console.debug('[Docuss] onCreateTopic notification promises resolved', {
+							topicId,
+							targetLevel
+						})
+						return createdPost
+					})
+				},
+				e => {
+					const tagsStr = JSON.stringify(tags)
+					u.logError(`Failed to create topic with tags ${tagsStr}: ${e}`)
+					console.error('[Docuss] onCreateTopic failed', {
+						error: e,
+						tags,
+						title,
+						pageName
+					})
+					throw e
+				}
+			)
+		}
+
+		// Pre-create tags if they don't exist yet
+		// This uses the "create temporary topic" approach which works for all users
+		// with "create tag allowed groups" permissions
+		console.debug('[Docuss] Pre-creating tags if needed', { tags })
+		const creationPromise = discourseAPI
+			.newTags(tags)
+			.then(
+				() => {
+					console.debug('[Docuss] Tag pre-creation succeeded or tags already exist')
+					return createTopic()
+				},
+				e => {
+					console.warn('[Docuss] Tag pre-creation failed, will try anyway during topic creation', e)
+					return createTopic()
+				}
+			)
+
+		this._trackTopicCreation(pageName, creationPromise)
 	} // End of onCreateTopic
 }
+	_handleNavigateTo({ url, delay = 0, waitForPageName, waitTimeout }) {
+		if (!url || typeof url !== 'string') {
+			console.warn('[Docuss] navigateTo payload missing url', { url })
+			return
+		}
+
+		const router = this.container.lookup('service:router')
+		if (!router || typeof router.transitionTo !== 'function') {
+			console.warn('[Docuss] Unable to locate router for navigateTo request')
+			return
+		}
+
+		const runTransition = () => {
+			if (delay > 0) {
+				setTimeout(() => router.transitionTo(url), delay)
+			} else {
+				router.transitionTo(url)
+			}
+		}
+
+		if (waitForPageName) {
+			const effectiveTimeout =
+				typeof waitTimeout === 'number'
+					? waitTimeout
+					: 8000
+			const boundedTimeout = effectiveTimeout < 0 ? 0 : effectiveTimeout
+			this._waitForTopicCreation(waitForPageName, boundedTimeout)
+				.then(runTransition)
+				.catch(() => runTransition())
+			return
+		}
+
+		runTransition()
+	}
+
+	_trackTopicCreation(pageName, promise) {
+		if (!pageName || !promise || typeof promise.then !== 'function') {
+			return
+		}
+
+		const basePromise = Promise.resolve(promise)
+		const safePromise = basePromise.catch(error => {
+			console.error('[Docuss] Topic creation promise rejected', {
+				pageName,
+				error
+			})
+		})
+
+		this.pendingTopicPromises.set(pageName, safePromise)
+
+		if (typeof safePromise.finally === 'function') {
+			safePromise.finally(() => {
+				const stored = this.pendingTopicPromises.get(pageName)
+				if (stored === safePromise) {
+					this.pendingTopicPromises.delete(pageName)
+				}
+			})
+		}
+	}
+
+	_waitForTopicCreation(pageName, timeoutMs = 8000) {
+		const pending = pageName ? this.pendingTopicPromises.get(pageName) : null
+		if (!pending) {
+			return Promise.resolve()
+		}
+
+		const effectiveTimeout = timeoutMs && timeoutMs > 0 ? timeoutMs : 0
+
+		return new Promise(resolve => {
+			let finished = false
+			const finish = () => {
+				if (finished) {
+					return
+				}
+				finished = true
+				resolve()
+			}
+
+			const timeoutId = effectiveTimeout
+				? setTimeout(() => {
+					console.warn('[Docuss] Waiting for topic creation timed out', {
+						pageName,
+						timeoutMs: effectiveTimeout
+					})
+					finish()
+				}, effectiveTimeout)
+				: null
+
+			pending
+				.then(() => {
+					if (timeoutId) {
+						clearTimeout(timeoutId)
+					}
+					finish()
+				})
+				.catch(error => {
+					if (timeoutId) {
+						clearTimeout(timeoutId)
+					}
+					console.error('[Docuss] Topic creation promise rejected', {
+						pageName,
+						error
+					})
+					finish()
+				})
+		})
+	}
 
 //------------------------------------------------------------------------------
 
