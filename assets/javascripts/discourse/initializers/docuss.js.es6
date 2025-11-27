@@ -125,6 +125,7 @@ export default {
           // Trigger initial transition after layout is ready
           const router = container.lookup("service:router");
           const currentUrl = window.location.pathname;
+          let currentRouteName = router?.currentRouteName || router?.currentRoute?.name || null;
           
           // CRITICAL: Determine if we're on a Docuss route
           // Use URL as primary source since currentRouteName may be null on initial load
@@ -136,6 +137,16 @@ export default {
           console.log("Initial route detection:", { currentUrl, pathLooksDocuss, pathLooksTagsIntersection, pathLooksTopic, isDcsRoute });
           
           // Wait for router to be ready before checking route name
+          if (!currentRouteName) {
+            if (pathLooksDocuss) {
+              currentRouteName = currentUrl.startsWith("/docuss/") ? "docuss-with-page" : "docuss";
+            } else if (pathLooksTagsIntersection) {
+              currentRouteName = "tags.intersection";
+            } else if (pathLooksTopic) {
+              currentRouteName = "topic.fromParams";
+            }
+          }
+
           if (dcsIFrame && container.dcsLayout && isDcsRoute) {
             try {
               onDidTransition({
