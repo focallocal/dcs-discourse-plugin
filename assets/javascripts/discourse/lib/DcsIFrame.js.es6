@@ -1287,7 +1287,7 @@ export class DcsIFrame {
 
 		this._trackTopicCreation(pageName, creationPromise)
 	} // End of onCreateTopic
-}
+
 	_handleNavigateTo({ url, delay = 0, waitForPageName, waitTimeout }) {
 		if (!url || typeof url !== 'string') {
 			console.warn('[Docuss] navigateTo payload missing url', { url })
@@ -1395,6 +1395,7 @@ export class DcsIFrame {
 				})
 		})
 	}
+} // End of DcsIFrame class
 
 //------------------------------------------------------------------------------
 
