@@ -502,6 +502,25 @@ export class DcsIFrame {
 					topic: this.currentRoute.topic
 				}, '*')
 			}
+
+			// Send dcsOpenForm message for m_gather2 and m_gather3 pages
+			// This tells fl-maps to open the new event form with a specific formType
+			if (iframe && iframe.contentWindow) {
+				const pageName = this.currentRoute.pageName
+				if (pageName === 'm_gather2') {
+					console.log('📤 Sending dcsOpenForm postMessage for form type 2')
+					iframe.contentWindow.postMessage({
+						type: 'dcsOpenForm',
+						formType: 2
+					}, '*')
+				} else if (pageName === 'm_gather3') {
+					console.log('📤 Sending dcsOpenForm postMessage for form type 3')
+					iframe.contentWindow.postMessage({
+						type: 'dcsOpenForm',
+						formType: 3
+					}, '*')
+				}
+			}
 		}
 
 		this.clientContext = null
