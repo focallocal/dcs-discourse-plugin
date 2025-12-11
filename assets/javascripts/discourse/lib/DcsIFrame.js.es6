@@ -37,24 +37,33 @@ async function retryWithBackoff(fn, maxRetries = 3, baseDelay = 500) {
 }
 
 //------------------------------------------------------------------------------
-// Debug Timing System
-// Toggle with: window.dcsTimingOn() / window.dcsTimingOff()
-// View timeline: window.dcsShowTimeline()
-// Logs are auto-saved to localStorage and auto-downloaded when timing stops
+// Debug Timing System - Persistent Collection
+// Collects timing data across page reloads for extended debugging sessions.
+// Data is saved to localStorage continuously.
+//
+// Commands:
+//   window.dcsTimingStart(hours)  - Start collecting (default 24 hours)
+//   window.dcsTimingStop()        - Stop collecting and download logs
+//   window.dcsTimingStatus()      - Check if collecting and time remaining
+//   window.dcsTimingExport()      - Download all collected data
+//   window.dcsTimingClear()       - Clear all collected data
+//   window.dcsShowTimeline()      - Show current session in console
 //------------------------------------------------------------------------------
 
-const DCS_TIMING_STORAGE_KEY = 'dcs_timing_log'
+const DCS_TIMING_CONFIG_KEY = 'dcs_timing_config'
+const DCS_TIMING_EVENTS_KEY = 'dcs_timing_events'
+const MAX_EVENTS_PER_SAVE = 50  // Batch size before auto-save
+const MAX_TOTAL_EVENTS = 10000  // Cap to prevent localStorage overflow (~2-3MB)
 
 const DcsTiming = {
 	enabled: false,
-	events: [],
-	startTime: null,
-	sessionId: null,
+	events: [],        // Current page session events (in memory)
+	pendingEvents: [], // Events waiting to be saved to localStorage
+	saveTimer: null,
 	
 	init() {
-		this.startTime = Date.now()
-		this.events = []
-		this.sessionId = null
+		// Check if we should be collecting (persists across page loads)
+		this._loadConfig()
 		
 		// Listen for timing events from iframe
 		window.addEventListener('message', (event) => {
@@ -63,14 +72,56 @@ const DcsTiming = {
 			}
 		})
 		
-		// Expose global toggle functions
-		window.dcsTimingOn = () => {
+		// Notify iframe of current state on load
+		if (this.enabled) {
+			console.log('⏱️ DCS Timing is ACTIVE (collecting). Run dcsTimingStatus() for details.')
+			setTimeout(() => {
+				const iframe = document.querySelector('#dcs-left-pane iframe')
+				if (iframe) {
+					iframe.contentWindow.postMessage({ type: 'dcs-timing-toggle', enabled: true }, '*')
+				}
+			}, 2000)
+		}
+		
+		// Save pending events periodically
+		this.saveTimer = setInterval(() => this._savePendingEvents(), 5000)
+		
+		// Save on page unload
+		window.addEventListener('beforeunload', () => {
+			if (this.pendingEvents.length > 0) {
+				this._savePendingEvents()
+			}
+		})
+		
+		// Expose commands globally
+		this._exposeCommands()
+	},
+	
+	_exposeCommands() {
+		// Start collecting for X hours (default 24)
+		window.dcsTimingStart = (hours = 24) => {
+			const expiresAt = Date.now() + (hours * 60 * 60 * 1000)
 			this.enabled = true
+			this.config = {
+				enabled: true,
+				startedAt: Date.now(),
+				expiresAt: expiresAt,
+				hours: hours
+			}
+			this._saveConfig()
+			
+			// Clear previous events if starting fresh
+			localStorage.removeItem(DCS_TIMING_EVENTS_KEY)
 			this.events = []
-			this.startTime = Date.now()
-			this.sessionId = new Date().toISOString().replace(/[:.]/g, '-')
-			console.log('⏱️ DCS Timing enabled. Navigate around, logs auto-save to localStorage.')
-			console.log('⏱️ Run window.dcsTimingOff() to stop and auto-download the log file.')
+			this.pendingEvents = []
+			
+			console.log(`⏱️ DCS Timing started. Collecting for ${hours} hours.`)
+			console.log(`⏱️ Will auto-stop at: ${new Date(expiresAt).toLocaleString()}`)
+			console.log('⏱️ Data persists across page reloads. Run dcsTimingStop() when done.')
+			
+			// Log this page load
+			this.log('Timing collection started', { hours, url: window.location.href })
+			
 			// Notify iframe
 			const iframe = document.querySelector('#dcs-left-pane iframe')
 			if (iframe) {
@@ -78,211 +129,258 @@ const DcsTiming = {
 			}
 		}
 		
-		window.dcsTimingOff = () => {
-			if (this.enabled && this.events.length > 0) {
-				// Auto-save to localStorage and download file
-				this._saveToStorage()
-				this._downloadFile()
-				console.log('⏱️ DCS Timing disabled. Log saved to localStorage and downloaded.')
-			} else {
-				console.log('⏱️ DCS Timing disabled (no events to save)')
+		// Backwards compatibility
+		window.dcsTimingOn = () => window.dcsTimingStart(24)
+		
+		// Stop collecting and download
+		window.dcsTimingStop = () => {
+			if (!this.enabled) {
+				console.log('⏱️ Timing was not active.')
+				return
 			}
+			
+			// Save any pending events
+			this._savePendingEvents()
+			
+			// Get total event count
+			const allEvents = this._getAllEvents()
+			
+			if (allEvents.length > 0) {
+				this._downloadAllEvents()
+				console.log(`⏱️ Timing stopped. Downloaded ${allEvents.length} events.`)
+			} else {
+				console.log('⏱️ Timing stopped (no events collected).')
+			}
+			
 			this.enabled = false
+			this.config = { enabled: false }
+			this._saveConfig()
+			
 			const iframe = document.querySelector('#dcs-left-pane iframe')
 			if (iframe) {
 				iframe.contentWindow.postMessage({ type: 'dcs-timing-toggle', enabled: false }, '*')
 			}
 		}
 		
-		// Expose log function globally for use in other modules
-		window.dcsTimingLog = (event, details = null) => {
-			this.log(event, details)
-		}
+		// Backwards compatibility
+		window.dcsTimingOff = window.dcsTimingStop
 		
-		// View all saved logs in localStorage
-		window.dcsTimingLogs = () => {
-			const logs = this._getAllLogs()
-			if (logs.length === 0) {
-				console.log('⏱️ No saved timing logs found.')
-				return
-			}
-			console.log(`⏱️ Found ${logs.length} saved timing log(s):`)
-			logs.forEach((log, i) => {
-				console.log(`  ${i + 1}. ${log.sessionId} - ${log.events.length} events, ${log.url}`)
-			})
-			console.log('⏱️ Use window.dcsTimingExport() to download all logs as a single file.')
-		}
-		
-		// Export all saved logs
-		window.dcsTimingExport = () => {
-			const logs = this._getAllLogs()
-			if (logs.length === 0) {
-				console.log('⏱️ No saved timing logs to export.')
-				return
-			}
-			
-			const lines = [
-				'DCS Timing Logs - All Sessions',
-				'==============================',
-				`Exported: ${new Date().toISOString()}`,
-				`Total sessions: ${logs.length}`,
-				''
-			]
-			
-			logs.forEach((log, i) => {
-				lines.push(`\n${'='.repeat(60)}`)
-				lines.push(`SESSION ${i + 1}: ${log.sessionId}`)
-				lines.push(`URL: ${log.url}`)
-				lines.push(`User Agent: ${log.userAgent}`)
-				lines.push(`Events: ${log.events.length}`)
-				lines.push('-'.repeat(60))
-				
-				if (log.events.length > 0) {
-					const baseTime = log.events[0].timestamp
-					log.events.forEach(e => {
-						const relTime = (e.timestamp - baseTime).toString().padStart(6, ' ')
-						const details = e.details ? ` | ${JSON.stringify(e.details)}` : ''
-						lines.push(`${relTime}ms [${e.source}] ${e.event}${details}`)
-					})
+		// Check status
+		window.dcsTimingStatus = () => {
+			if (!this.enabled) {
+				console.log('⏱️ Timing is NOT active.')
+				const allEvents = this._getAllEvents()
+				if (allEvents.length > 0) {
+					console.log(`⏱️ ${allEvents.length} events saved from previous session. Run dcsTimingExport() to download.`)
 				}
-			})
-			
-			const content = lines.join('\n')
-			const blob = new Blob([content], { type: 'text/plain' })
-			const url = URL.createObjectURL(blob)
-			const a = document.createElement('a')
-			a.href = url
-			a.download = `dcs-timing-all-${new Date().toISOString().replace(/[:.]/g, '-')}.txt`
-			document.body.appendChild(a)
-			a.click()
-			document.body.removeChild(a)
-			URL.revokeObjectURL(url)
-			console.log(`⏱️ Exported ${logs.length} session(s) to file`)
-		}
-		
-		// Clear all saved logs
-		window.dcsTimingClearAll = () => {
-			localStorage.removeItem(DCS_TIMING_STORAGE_KEY)
-			console.log('⏱️ All saved timing logs cleared')
-		}
-		
-		window.dcsShowTimeline = () => {
-			if (this.events.length === 0) {
-				console.log('⏱️ No timing events recorded. Run window.dcsTimingOn() first, then navigate.')
 				return
 			}
 			
-			// Sort by timestamp
-			const sorted = [...this.events].sort((a, b) => a.timestamp - b.timestamp)
+			const allEvents = this._getAllEvents()
+			const remaining = this.config.expiresAt - Date.now()
+			const hoursLeft = Math.max(0, remaining / (1000 * 60 * 60)).toFixed(1)
+			const started = new Date(this.config.startedAt).toLocaleString()
+			const expires = new Date(this.config.expiresAt).toLocaleString()
+			
+			console.log('⏱️ Timing is ACTIVE')
+			console.log(`   Started: ${started}`)
+			console.log(`   Expires: ${expires} (${hoursLeft} hours remaining)`)
+			console.log(`   Events collected: ${allEvents.length}`)
+			console.log(`   Events in memory: ${this.events.length + this.pendingEvents.length}`)
+		}
+		
+		// Export all events
+		window.dcsTimingExport = () => {
+			this._savePendingEvents()
+			const allEvents = this._getAllEvents()
+			
+			if (allEvents.length === 0) {
+				console.log('⏱️ No events to export.')
+				return
+			}
+			
+			this._downloadAllEvents()
+			console.log(`⏱️ Exported ${allEvents.length} events.`)
+		}
+		
+		// Clear all data
+		window.dcsTimingClear = () => {
+			localStorage.removeItem(DCS_TIMING_EVENTS_KEY)
+			this.events = []
+			this.pendingEvents = []
+			console.log('⏱️ All timing data cleared.')
+		}
+		
+		// Backwards compatibility
+		window.dcsTimingClearAll = window.dcsTimingClear
+		
+		// Show current session timeline in console
+		window.dcsShowTimeline = () => {
+			const allEvents = this._getAllEvents()
+			
+			if (allEvents.length === 0) {
+				console.log('⏱️ No events recorded.')
+				return
+			}
+			
+			const sorted = [...allEvents].sort((a, b) => a.timestamp - b.timestamp)
 			const baseTime = sorted[0].timestamp
 			
 			console.log('\n⏱️ ═══════════════════════════════════════════════════════════')
 			console.log('⏱️ DCS TIMING TIMELINE')
 			console.log('⏱️ ═══════════════════════════════════════════════════════════')
 			
+			// Group by page load
+			let currentUrl = ''
 			sorted.forEach(e => {
-				const relTime = (e.timestamp - baseTime).toString().padStart(6, ' ')
-				const source = e.source.padEnd(12, ' ')
+				if (e.details?.url && e.details.url !== currentUrl) {
+					currentUrl = e.details.url
+					console.log(`\n⏱️ --- Page: ${currentUrl} ---`)
+				}
+				const relTime = (e.timestamp - baseTime).toString().padStart(8, ' ')
+				const source = (e.source || 'unknown').padEnd(12, ' ')
 				const details = e.details ? ` | ${JSON.stringify(e.details)}` : ''
 				console.log(`⏱️ ${relTime}ms [${source}] ${e.event}${details}`)
 			})
 			
-			console.log('⏱️ ═══════════════════════════════════════════════════════════')
-			console.log(`⏱️ Total events: ${sorted.length}, Span: ${sorted[sorted.length-1].timestamp - baseTime}ms`)
+			console.log('\n⏱️ ═══════════════════════════════════════════════════════════')
+			const totalMs = sorted[sorted.length - 1].timestamp - baseTime
+			const totalMins = (totalMs / 60000).toFixed(1)
+			console.log(`⏱️ Total events: ${sorted.length}, Span: ${totalMs}ms (${totalMins} min)`)
 			console.log('⏱️ ═══════════════════════════════════════════════════════════\n')
 		}
 		
-		window.dcsClearTimeline = () => {
-			this.events = []
-			this.startTime = Date.now()
-			console.log('⏱️ Timeline cleared (current session only, saved logs preserved)')
+		// Expose log function for other modules
+		window.dcsTimingLog = (event, details = null) => {
+			this.log(event, details)
 		}
-		
-		window.dcsSaveTimeline = () => {
-			if (this.events.length === 0) {
-				console.log('⏱️ No timing events to save. Run window.dcsTimingOn() first.')
-				return
+	},
+	
+	_loadConfig() {
+		try {
+			const stored = localStorage.getItem(DCS_TIMING_CONFIG_KEY)
+			if (stored) {
+				this.config = JSON.parse(stored)
+				
+				// Check if still valid (not expired)
+				if (this.config.enabled && this.config.expiresAt > Date.now()) {
+					this.enabled = true
+					// Log this page load
+					setTimeout(() => {
+						this.log('Page loaded (timing active)', { url: window.location.href })
+					}, 100)
+				} else if (this.config.enabled) {
+					// Expired
+					console.log('⏱️ Timing collection period expired. Run dcsTimingExport() to download data.')
+					this.enabled = false
+					this.config.enabled = false
+					this._saveConfig()
+				}
 			}
-			this._saveToStorage()
-			this._downloadFile()
-			console.log('⏱️ Timeline saved to localStorage and downloaded')
+		} catch (e) {
+			this.config = { enabled: false }
 		}
 	},
 	
-	// Internal: Save current session to localStorage
-	_saveToStorage() {
-		if (this.events.length === 0) return
-		
-		const sorted = [...this.events].sort((a, b) => a.timestamp - b.timestamp)
-		const session = {
-			sessionId: this.sessionId || new Date().toISOString().replace(/[:.]/g, '-'),
-			url: window.location.href,
-			userAgent: navigator.userAgent,
-			events: sorted
+	_saveConfig() {
+		try {
+			localStorage.setItem(DCS_TIMING_CONFIG_KEY, JSON.stringify(this.config))
+		} catch (e) {
+			console.warn('⏱️ Could not save config:', e)
 		}
-		
-		// Get existing logs and add this session
-		const logs = this._getAllLogs()
-		logs.push(session)
-		
-		// Keep only last 10 sessions to avoid localStorage bloat
-		while (logs.length > 10) {
-			logs.shift()
-		}
+	},
+	
+	_savePendingEvents() {
+		if (this.pendingEvents.length === 0) return
 		
 		try {
-			localStorage.setItem(DCS_TIMING_STORAGE_KEY, JSON.stringify(logs))
+			// Get existing events
+			let allEvents = this._getAllEvents()
+			
+			// Add pending events
+			allEvents = allEvents.concat(this.pendingEvents)
+			this.pendingEvents = []
+			
+			// Cap total events to prevent overflow
+			if (allEvents.length > MAX_TOTAL_EVENTS) {
+				const removed = allEvents.length - MAX_TOTAL_EVENTS
+				allEvents = allEvents.slice(removed)
+				console.log(`⏱️ Event limit reached, removed ${removed} oldest events.`)
+			}
+			
+			localStorage.setItem(DCS_TIMING_EVENTS_KEY, JSON.stringify(allEvents))
 		} catch (e) {
-			console.warn('⏱️ Could not save to localStorage:', e)
+			if (e.name === 'QuotaExceededError') {
+				// Storage full, remove oldest half of events
+				console.warn('⏱️ localStorage full, trimming old events...')
+				let allEvents = this._getAllEvents()
+				allEvents = allEvents.slice(Math.floor(allEvents.length / 2))
+				localStorage.setItem(DCS_TIMING_EVENTS_KEY, JSON.stringify(allEvents))
+			} else {
+				console.warn('⏱️ Could not save events:', e)
+			}
 		}
 	},
 	
-	// Internal: Get all saved logs from localStorage
-	_getAllLogs() {
+	_getAllEvents() {
 		try {
-			const stored = localStorage.getItem(DCS_TIMING_STORAGE_KEY)
-			return stored ? JSON.parse(stored) : []
+			const stored = localStorage.getItem(DCS_TIMING_EVENTS_KEY)
+			const savedEvents = stored ? JSON.parse(stored) : []
+			// Include pending events not yet saved
+			return savedEvents.concat(this.pendingEvents)
 		} catch (e) {
-			return []
+			return this.pendingEvents.slice()
 		}
 	},
 	
-	// Internal: Download current session as file
-	_downloadFile() {
-		if (this.events.length === 0) return
+	_downloadAllEvents() {
+		const allEvents = this._getAllEvents()
+		if (allEvents.length === 0) return
 		
-		const sorted = [...this.events].sort((a, b) => a.timestamp - b.timestamp)
+		const sorted = [...allEvents].sort((a, b) => a.timestamp - b.timestamp)
 		const baseTime = sorted[0].timestamp
+		const startDate = new Date(baseTime)
+		const endDate = new Date(sorted[sorted.length - 1].timestamp)
 		
 		const lines = [
-			'DCS Timing Log',
-			'==============',
-			`Session: ${this.sessionId}`,
-			`Generated: ${new Date().toISOString()}`,
-			`URL: ${window.location.href}`,
+			'DCS Timing Log - Extended Collection',
+			'=====================================',
+			`Exported: ${new Date().toISOString()}`,
+			`Collection started: ${startDate.toISOString()}`,
+			`Collection ended: ${endDate.toISOString()}`,
+			`Duration: ${((endDate - startDate) / 60000).toFixed(1)} minutes`,
+			`Total events: ${sorted.length}`,
 			`User Agent: ${navigator.userAgent}`,
 			'',
 			'Timeline:',
 			'---------'
 		]
 		
+		// Group events by URL for readability
+		let currentUrl = ''
 		sorted.forEach(e => {
-			const relTime = (e.timestamp - baseTime).toString().padStart(6, ' ')
+			if (e.details?.url && e.details.url !== currentUrl) {
+				currentUrl = e.details.url
+				lines.push('')
+				lines.push(`=== PAGE: ${currentUrl} ===`)
+			}
+			const relTime = (e.timestamp - baseTime).toString().padStart(8, ' ')
+			const absTime = new Date(e.timestamp).toISOString().substr(11, 12)
 			const details = e.details ? ` | ${JSON.stringify(e.details)}` : ''
-			lines.push(`${relTime}ms [${e.source}] ${e.event}${details}`)
+			lines.push(`${relTime}ms (${absTime}) [${e.source}] ${e.event}${details}`)
 		})
 		
 		lines.push('')
 		lines.push('---------')
 		lines.push(`Total events: ${sorted.length}`)
-		lines.push(`Total span: ${sorted[sorted.length-1].timestamp - baseTime}ms`)
+		lines.push(`Total span: ${sorted[sorted.length - 1].timestamp - baseTime}ms`)
 		
 		const content = lines.join('\n')
 		const blob = new Blob([content], { type: 'text/plain' })
 		const url = URL.createObjectURL(blob)
 		const a = document.createElement('a')
 		a.href = url
-		a.download = `dcs-timing-${this.sessionId || new Date().toISOString().replace(/[:.]/g, '-')}.txt`
+		a.download = `dcs-timing-${startDate.toISOString().replace(/[:.]/g, '-')}.txt`
 		document.body.appendChild(a)
 		a.click()
 		document.body.removeChild(a)
@@ -292,12 +390,19 @@ const DcsTiming = {
 	log(event, details = null) {
 		if (!this.enabled) return
 		this.addEvent('discourse', event, details, Date.now())
-		console.log(`⏱️ [discourse] ${event}`, details || '')
 	},
 	
 	addEvent(source, event, details, timestamp) {
 		if (!this.enabled) return
-		this.events.push({ source, event, details, timestamp })
+		
+		const eventObj = { source, event, details, timestamp }
+		this.events.push(eventObj)
+		this.pendingEvents.push(eventObj)
+		
+		// Auto-save when batch is full
+		if (this.pendingEvents.length >= MAX_EVENTS_PER_SAVE) {
+			this._savePendingEvents()
+		}
 	}
 }
 
