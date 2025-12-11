@@ -36,6 +36,98 @@ async function retryWithBackoff(fn, maxRetries = 3, baseDelay = 500) {
 	throw lastError
 }
 
+//------------------------------------------------------------------------------
+// Debug Timing System
+// Toggle with: window.dcsTimingOn() / window.dcsTimingOff()
+// View timeline: window.dcsShowTimeline()
+//------------------------------------------------------------------------------
+
+const DcsTiming = {
+	enabled: false,
+	events: [],
+	startTime: null,
+	
+	init() {
+		this.startTime = Date.now()
+		this.events = []
+		
+		// Listen for timing events from iframe
+		window.addEventListener('message', (event) => {
+			if (event.data && event.data.type === 'dcs-timing') {
+				this.addEvent(event.data.source, event.data.event, event.data.details, event.data.timestamp)
+			}
+		})
+		
+		// Expose global toggle functions
+		window.dcsTimingOn = () => {
+			this.enabled = true
+			this.events = []
+			this.startTime = Date.now()
+			console.log('⏱️ DCS Timing enabled. Navigate around, then run window.dcsShowTimeline()')
+			// Notify iframe
+			const iframe = document.querySelector('#dcs-left-pane iframe')
+			if (iframe) {
+				iframe.contentWindow.postMessage({ type: 'dcs-timing-toggle', enabled: true }, '*')
+			}
+		}
+		
+		window.dcsTimingOff = () => {
+			this.enabled = false
+			console.log('⏱️ DCS Timing disabled')
+			const iframe = document.querySelector('#dcs-left-pane iframe')
+			if (iframe) {
+				iframe.contentWindow.postMessage({ type: 'dcs-timing-toggle', enabled: false }, '*')
+			}
+		}
+		
+		window.dcsShowTimeline = () => {
+			if (this.events.length === 0) {
+				console.log('⏱️ No timing events recorded. Run window.dcsTimingOn() first, then navigate.')
+				return
+			}
+			
+			// Sort by timestamp
+			const sorted = [...this.events].sort((a, b) => a.timestamp - b.timestamp)
+			const baseTime = sorted[0].timestamp
+			
+			console.log('\n⏱️ ═══════════════════════════════════════════════════════════')
+			console.log('⏱️ DCS TIMING TIMELINE')
+			console.log('⏱️ ═══════════════════════════════════════════════════════════')
+			
+			sorted.forEach(e => {
+				const relTime = (e.timestamp - baseTime).toString().padStart(6, ' ')
+				const source = e.source.padEnd(12, ' ')
+				const details = e.details ? ` | ${JSON.stringify(e.details)}` : ''
+				console.log(`⏱️ ${relTime}ms [${source}] ${e.event}${details}`)
+			})
+			
+			console.log('⏱️ ═══════════════════════════════════════════════════════════')
+			console.log(`⏱️ Total events: ${sorted.length}, Span: ${sorted[sorted.length-1].timestamp - baseTime}ms`)
+			console.log('⏱️ ═══════════════════════════════════════════════════════════\n')
+		}
+		
+		window.dcsClearTimeline = () => {
+			this.events = []
+			this.startTime = Date.now()
+			console.log('⏱️ Timeline cleared')
+		}
+	},
+	
+	log(event, details = null) {
+		if (!this.enabled) return
+		this.addEvent('discourse', event, details, Date.now())
+		console.log(`⏱️ [discourse] ${event}`, details || '')
+	},
+	
+	addEvent(source, event, details, timestamp) {
+		if (!this.enabled) return
+		this.events.push({ source, event, details, timestamp })
+	}
+}
+
+// Initialize timing system
+DcsTiming.init()
+
 /**
  * @param {(string | boolean | IArguments)[]} args
  */
@@ -389,6 +481,7 @@ export class DcsIFrame {
 		}
 
 		this.currentRoute = route
+		DcsTiming.log('Route changed', { pageName: route.pageName, layout: route.layout, triggerId: route.triggerId })
 
 		//================================
 
@@ -524,6 +617,7 @@ export class DcsIFrame {
 			const iframe = this.container.dcsLayout.left
 			if (iframe && iframe.contentWindow && this.currentRoute.topic) {
 				console.log('📤 Sending dcsRoute postMessage with topic:', this.currentRoute.topic)
+				DcsTiming.log('Sending dcsRoute postMessage', { topic: this.currentRoute.topic?.id })
 				iframe.contentWindow.postMessage({
 					type: 'dcsRoute',
 					topic: this.currentRoute.topic
@@ -536,12 +630,14 @@ export class DcsIFrame {
 				const pageName = this.currentRoute.pageName
 				if (pageName === 'm_gather2') {
 					console.log('📤 Sending dcsOpenForm postMessage for form type 2')
+					DcsTiming.log('Sending dcsOpenForm', { formType: 2 })
 					iframe.contentWindow.postMessage({
 						type: 'dcsOpenForm',
 						formType: 2
 					}, '*')
 				} else if (pageName === 'm_gather3') {
 					console.log('📤 Sending dcsOpenForm postMessage for form type 3')
+					DcsTiming.log('Sending dcsOpenForm', { formType: 3 })
 					iframe.contentWindow.postMessage({
 						type: 'dcsOpenForm',
 						formType: 3
@@ -571,6 +667,7 @@ export class DcsIFrame {
 	_loadPage({ url, onConnectedOrReconnected }) {
 		// Reset
 		ComToClient.disconnect()
+		DcsTiming.log('Loading iframe page', { url })
 
 		// Build the target url
 		const parsedUrl = new URL(url)
@@ -582,13 +679,18 @@ export class DcsIFrame {
 		}
 
 		// Create the iframe with the right url.
+		DcsTiming.log('Creating iframe element')
 		this.container.dcsLayout.replaceLeftWithIFrame(parsedUrl.href)
 
 		// Connect to the iframe
+		DcsTiming.log('Initiating Bellhop connection')
 		ComToClient.connect({
 			iframeElement: this.container.dcsLayout.left,
 			iframeOrigin: parsedUrl.origin,
-			onConnected: onConnectedOrReconnected
+			onConnected: () => {
+				DcsTiming.log('Bellhop connected to iframe')
+				if (onConnectedOrReconnected) onConnectedOrReconnected()
+			}
 			/*
       timeout: 10000,
       onTimeout: () => {
