@@ -13,6 +13,30 @@ import { NotificationLevels } from 'discourse/lib/notification-levels'
 //------------------------------------------------------------------------------
 
 /**
+ * Retry a promise-returning function with exponential backoff
+ * @param {() => Promise<T>} fn - Function that returns a promise
+ * @param {number} maxRetries - Maximum number of retry attempts
+ * @param {number} baseDelay - Initial delay in ms (doubles each retry)
+ * @returns {Promise<T>}
+ */
+async function retryWithBackoff(fn, maxRetries = 3, baseDelay = 500) {
+	let lastError
+	for (let attempt = 0; attempt <= maxRetries; attempt++) {
+		try {
+			return await fn()
+		} catch (error) {
+			lastError = error
+			if (attempt < maxRetries) {
+				const delay = baseDelay * Math.pow(2, attempt)
+				console.warn(`[Docuss] Retry attempt ${attempt + 1}/${maxRetries} after ${delay}ms...`, error)
+				await new Promise(resolve => setTimeout(resolve, delay))
+			}
+		}
+	}
+	throw lastError
+}
+
+/**
  * @param {(string | boolean | IArguments)[]} args
  */
 const log = (...args) => {
@@ -230,11 +254,14 @@ export class DcsIFrame {
 				throw e
 			})
 
-		const tagsPromise = discourseAPI.getTagList().catch(e => {
-			if (typeof e === 'string') {
-				this._displayError('Docuss - Error loading tags', e)
-			}
-			throw e
+		const tagsPromise = retryWithBackoff(
+			() => discourseAPI.getTagList(),
+			3,  // max 3 retries
+			500 // start with 500ms delay, doubles each retry
+		).catch(e => {
+			console.warn('[Docuss] Tags fetch failed after all retries, continuing with empty tags', e)
+			// Return empty tags object so the app can continue
+			return { tags: [{ id: 'dcs-comment', count: 0 }, { id: 'dcs-discuss', count: 0 }] }
 		})
 
 		this.readyPromise = Promise.all([descrPromise, tagsPromise]).then(res => {
