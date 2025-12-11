@@ -80,6 +80,11 @@ const DcsTiming = {
 			}
 		}
 		
+		// Expose log function globally for use in other modules
+		window.dcsTimingLog = (event, details = null) => {
+			this.log(event, details)
+		}
+		
 		window.dcsShowTimeline = () => {
 			if (this.events.length === 0) {
 				console.log('⏱️ No timing events recorded. Run window.dcsTimingOn() first, then navigate.')
@@ -110,6 +115,53 @@ const DcsTiming = {
 			this.events = []
 			this.startTime = Date.now()
 			console.log('⏱️ Timeline cleared')
+		}
+		
+		window.dcsSaveTimeline = () => {
+			if (this.events.length === 0) {
+				console.log('⏱️ No timing events to save. Run window.dcsTimingOn() first.')
+				return
+			}
+			
+			// Sort by timestamp
+			const sorted = [...this.events].sort((a, b) => a.timestamp - b.timestamp)
+			const baseTime = sorted[0].timestamp
+			
+			// Build log content
+			const lines = [
+				'DCS Timing Log',
+				'==============',
+				`Generated: ${new Date().toISOString()}`,
+				`URL: ${window.location.href}`,
+				`User Agent: ${navigator.userAgent}`,
+				'',
+				'Timeline:',
+				'---------'
+			]
+			
+			sorted.forEach(e => {
+				const relTime = (e.timestamp - baseTime).toString().padStart(6, ' ')
+				const details = e.details ? ` | ${JSON.stringify(e.details)}` : ''
+				lines.push(`${relTime}ms [${e.source}] ${e.event}${details}`)
+			})
+			
+			lines.push('')
+			lines.push('---------')
+			lines.push(`Total events: ${sorted.length}`)
+			lines.push(`Total span: ${sorted[sorted.length-1].timestamp - baseTime}ms`)
+			
+			// Create and download file
+			const content = lines.join('\n')
+			const blob = new Blob([content], { type: 'text/plain' })
+			const url = URL.createObjectURL(blob)
+			const a = document.createElement('a')
+			a.href = url
+			a.download = `dcs-timing-${new Date().toISOString().replace(/[:.]/g, '-')}.txt`
+			document.body.appendChild(a)
+			a.click()
+			document.body.removeChild(a)
+			URL.revokeObjectURL(url)
+			console.log('⏱️ Timeline saved to file')
 		}
 	},
 	

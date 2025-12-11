@@ -125,14 +125,26 @@ export function onDidTransition({
   queryParamsOnly
 }) {
   console.log('🔄 onDidTransition called with route:', routeName, 'queryParamsOnly:', queryParamsOnly)
+  
+  // Log timing if enabled
+  if (window.dcsTimingLog) {
+    window.dcsTimingLog('Route change detected', { routeName, queryParamsOnly })
+  }
+  
   iframe
     .readyForTransitions()
     .then(() => {
       console.log('✓ iframe ready, calling onDidTransition2')
+      if (window.dcsTimingLog) {
+        window.dcsTimingLog('iframe ready for transitions', { routeName })
+      }
       onDidTransition2({ container, iframe, queryParamsOnly, routeName })
     })
     .catch(e => {
       console.error('❌ iframe.readyForTransitions failed:', e)
+      if (window.dcsTimingLog) {
+        window.dcsTimingLog('iframe readyForTransitions FAILED', { error: e.message || String(e) })
+      }
       if (routeName.startsWith('docuss')) {
         // Show the error page
         container.dcsLayout.setLayout(0)
@@ -148,6 +160,11 @@ export function onDidTransition({
 
 function onDidTransition2({ container, iframe, routeName, queryParamsOnly }) {
   console.log('📋 onDidTransition2 called with route:', routeName)
+  
+  // Log timing if enabled
+  if (window.dcsTimingLog) {
+    window.dcsTimingLog('onDidTransition2 started', { routeName })
+  }
 
   if (routeName.startsWith('topic.')) {
     const route = container.lookup('route:topic')
@@ -156,11 +173,25 @@ function onDidTransition2({ container, iframe, routeName, queryParamsOnly }) {
     // immediately, especially when creating a new topic
     // 15x200 = 3s total. Tried 1,5s before -> not enough.
     const hasTagsProp = () => model.hasOwnProperty('tags')
+    const tagWaitStart = Date.now()
+    
+    if (window.dcsTimingLog) {
+      window.dcsTimingLog('Waiting for tags property', { topicId: model?.id })
+    }
+    
     u.async.retryDelay(hasTagsProp, 15, 200).then(
       () => {
+        const waitTime = Date.now() - tagWaitStart
+        if (window.dcsTimingLog) {
+          window.dcsTimingLog('Tags property loaded', { waitTimeMs: waitTime, tags: model.tags })
+        }
         onDidTransition3({ container, iframe, routeName, queryParamsOnly })
       },
       () => {
+        const waitTime = Date.now() - tagWaitStart
+        if (window.dcsTimingLog) {
+          window.dcsTimingLog('Tags property NOT found (timeout)', { waitTimeMs: waitTime })
+        }
         // Property "tags" not found in topic model. This happens when topics
         // have no tags. Show the normal Discourse.
         container.dcsLayout.setLayout(1)
@@ -176,6 +207,10 @@ function onDidTransition2({ container, iframe, routeName, queryParamsOnly }) {
 function onDidTransition3({ container, iframe, routeName, queryParamsOnly }) {
   //console.log('onDidTransition3: ', routeName)
   console.log('📍 onDidTransition3 called with route:', routeName)
+  
+  if (window.dcsTimingLog) {
+    window.dcsTimingLog('onDidTransition3 started', { routeName })
+  }
 
   //**** Docuss routes ****
   if (routeName.startsWith('docuss')) {
