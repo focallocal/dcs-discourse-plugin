@@ -186,6 +186,82 @@ webmasters define categories depends on the Docuss Client library they use:
   [here](https://github.com/sylque/dcs-website-schema#file-format-reference)
   (search the page for "category")
 
+## Debug Timing System
+
+A cross-origin timing diagnostic tool for tracking communication between Discourse (Docuss plugin) and the embedded iframe. Use this to debug timing issues, identify slow operations, and understand the sequence of events during page navigation.
+
+### Quick Start
+
+Open your browser's developer console (F12 → Console) and run:
+
+    // Start collecting for 24 hours
+    window.dcsTimingStart(24)
+
+    // Navigate around your site normally...
+
+    // Check status anytime
+    window.dcsTimingStatus()
+
+    // When done, stop and download the log
+    window.dcsTimingStop()
+
+### Features
+
+- **Persists across page reloads** - Collection continues when you refresh or navigate
+- **Auto-saves every 5 seconds** to localStorage
+- **Saves on page unload** - Won't lose data if you close the tab
+- **Auto-expires** after the specified duration
+- **Caps at 10,000 events** to prevent localStorage overflow
+- **Trims oldest events** automatically if storage gets full
+
+### Available Commands
+
+| Command | Description |
+|---------|-------------|
+| `dcsTimingStart(hours)` | Start collecting for specified hours (default 24) |
+| `dcsTimingStatus()` | Check if active, time remaining, event count |
+| `dcsTimingStop()` | Stop collecting and download all events |
+| `dcsTimingExport()` | Download collected events without stopping |
+| `dcsShowTimeline()` | Show events in console |
+| `dcsTimingClear()` | Delete all collected data |
+
+### What Gets Tracked
+
+**Discourse Side:**
+- Route changes - When Discourse navigates to a new page
+- Page loads - When iframe content is loaded
+- Tag loading - When waiting for topic tags to load
+- postMessage sends - Messages sent to the iframe
+
+**iframe Side (fl-maps):**
+- Message received - When iframe receives a message from parent
+- pauseVideo - Video pause events
+- dcsOpenForm - Form open requests
+- dcs-topic-posted - Topic creation confirmations
+- Map mount - When the map component mounts
+
+### Example Log Output
+
+    DCS Timing Log - Extended Collection
+    =====================================
+    Exported: 2025-12-11T10:30:00.000Z
+    Collection started: 2025-12-10T10:30:00.000Z
+    Duration: 1440.0 minutes
+    Total events: 523
+
+    === PAGE: https://example.com/docuss/home ===
+         0ms (10:30:00.123) [discourse] Route change detected
+        15ms (10:30:00.138) [discourse] iframe ready for transitions
+        45ms (10:30:00.168) [fl-maps] Message received: cycleRoutes
+
+### Workflow for Bug Reports
+
+1. Run `dcsTimingStart(24)` in console
+2. Use the site normally (refresh, navigate, reproduce issues)
+3. Run `dcsTimingStatus()` to check event count
+4. Run `dcsTimingStop()` to download the log file
+5. Share the `.txt` file for analysis
+
 ## License
 
 See [here](https://github.com/sylque/docuss#license).
