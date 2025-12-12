@@ -907,22 +907,24 @@ export class DcsIFrame {
 
 			// Send dcsOpenForm message for m_gather2 and m_gather3 pages
 			// This tells fl-maps to open the new event form with a specific formType
+			// Retry mechanism: send immediately, then at 500ms and 1500ms for Brave compatibility
 			if (iframe && iframe.contentWindow) {
 				const pageName = this.currentRoute.pageName
-				if (pageName === 'm_gather2') {
-					console.log('📤 Sending dcsOpenForm postMessage for form type 2')
-					DcsTiming.log('Sending dcsOpenForm', { formType: 2 })
-					iframe.contentWindow.postMessage({
-						type: 'dcsOpenForm',
-						formType: 2
-					}, '*')
-				} else if (pageName === 'm_gather3') {
-					console.log('📤 Sending dcsOpenForm postMessage for form type 3')
-					DcsTiming.log('Sending dcsOpenForm', { formType: 3 })
-					iframe.contentWindow.postMessage({
-						type: 'dcsOpenForm',
-						formType: 3
-					}, '*')
+				if (pageName === 'm_gather2' || pageName === 'm_gather3') {
+					const formType = pageName === 'm_gather2' ? 2 : 3
+					const sendFormMessage = () => {
+						console.log(`📤 Sending dcsOpenForm postMessage for form type ${formType}`)
+						DcsTiming.log('Sending dcsOpenForm', { formType })
+						iframe.contentWindow.postMessage({
+							type: 'dcsOpenForm',
+							formType: formType
+						}, '*')
+					}
+					
+					// Send immediately and retry twice for browsers where listener may not be ready
+					sendFormMessage()
+					setTimeout(sendFormMessage, 500)
+					setTimeout(sendFormMessage, 1500)
 				}
 			}
 		}
