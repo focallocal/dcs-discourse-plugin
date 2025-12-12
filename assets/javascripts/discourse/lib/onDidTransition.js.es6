@@ -216,7 +216,18 @@ function onDidTransition3({ container, iframe, routeName, queryParamsOnly }) {
   if (routeName.startsWith('docuss')) {
     const route = container.lookup('route:' + routeName)
     const context = route['context'] || {}
-    const dcsRoute = { layout: 0, pageName: context['page'] } // Here pageName can be empty
+    
+    // FIX: If pageName is empty but URL has a page, extract it from URL
+    // This prevents the "homepage flash" when navigating to /docuss/pageName
+    // when the route context hasn't been populated yet
+    let pageName = context['page']
+    if (!pageName && window.location.pathname.startsWith('/docuss/')) {
+      // Extract page name from URL: /docuss/m_map -> m_map
+      pageName = window.location.pathname.substring('/docuss/'.length).split('/')[0]
+      console.log('📍 Extracted pageName from URL:', pageName)
+    }
+    
+    const dcsRoute = { layout: 0, pageName }
     const hasRedirected = iframe.didTransition(dcsRoute)
     if (hasRedirected) {
       return
