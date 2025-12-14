@@ -37,83 +37,77 @@ function hideSpinner() {
   }
 }
 
-function waitForConnectionAndSetLayout({ container, iframe, layout, dcsRoute, retryCount = 0 }) {
-  const maxRetries = 3
-  const retryDelay = 1000 // 1 second for faster response
+// Connection check interval (ms) - how often we check if Bellhop connected
+const CONNECTION_CHECK_INTERVAL = 100
 
-  // Initialize retry count on container if not present
-  if (!container._docussRetryCount) {
-    container._docussRetryCount = 0
+// Time before showing spinner (ms) - prevents flicker on fast connections
+const SPINNER_DELAY = 300
+
+// Max time to wait for connection (ms) - based on timing data showing 500-700ms typical
+const MAX_CONNECTION_WAIT = 2000
+
+// Time before auto-recovery to layout 0 (ms)
+const RECOVERY_TIMEOUT = 5000
+
+function waitForConnectionAndSetLayout({ container, iframe, layout, dcsRoute, startTime = null }) {
+  // Track when we started waiting
+  if (!startTime) {
+    startTime = Date.now()
+  }
+  
+  const elapsed = Date.now() - startTime
+
+  // Clear any previous timers
+  if (container._docussConnectionTimer) {
+    clearTimeout(container._docussConnectionTimer)
+    container._docussConnectionTimer = null
   }
 
+  // Success: connection established
   if (ComToClient.isConnected()) {
-    console.log('\u2713 iframe connected, setting layout immediately')
+    console.log(`\u2713 iframe connected after ${elapsed}ms, setting layout ${layout}`)
     hideSpinner()
     container._docussRetryCount = 0
     container.dcsLayout.setLayout(layout)
+    delete container._docussPendingLayout
     return
   }
 
-  console.log(`\u23f3 iframe not connected, waiting for connection (attempt ${container._docussRetryCount + 1}/${maxRetries})`)
-  
-  // Store pending layout for later application
+  // Failure: exceeded max wait time
+  if (elapsed >= MAX_CONNECTION_WAIT) {
+    console.warn(`\u26a0\ufe0f Connection timeout after ${elapsed}ms, applying layout anyway`)
+    hideSpinner()
+    container._docussRetryCount = 0
+    
+    // Apply the layout anyway - the iframe content may still load
+    container.dcsLayout.setLayout(layout)
+    delete container._docussPendingLayout
+    
+    // Set up a recovery check - if still not connected after more time, recover
+    container._docussRecoveryTimer = setTimeout(() => {
+      if (!ComToClient.isConnected()) {
+        console.warn('\u274c Still not connected, triggering recovery')
+        // Try reloading the iframe one more time
+        iframe.didTransition(dcsRoute)
+      }
+    }, RECOVERY_TIMEOUT)
+    return
+  }
+
+  // Still waiting: store pending state and schedule next check
+  console.log(`\u23f3 Waiting for connection (${elapsed}ms / ${MAX_CONNECTION_WAIT}ms)`)
   container._docussPendingLayout = { layout, dcsRoute }
   
-  // Only show spinner if connection takes longer than 500ms (prevents flicker on fast connections)
-  const spinnerTimer = setTimeout(() => {
-    if (!ComToClient.isConnected()) {
-      showSpinner()
-    }
-  }, 500)
-
-  // Clear any existing timers
-  if (container._docussConnectionTimer) {
-    clearTimeout(container._docussConnectionTimer)
+  // Show spinner after delay (prevents flicker on fast connections)
+  if (elapsed >= SPINNER_DELAY && !container._docussSpinnerShown) {
+    showSpinner()
+    container._docussSpinnerShown = true
   }
-  if (container._docussSpinnerTimer) {
-    clearTimeout(container._docussSpinnerTimer)
-  }
-  
-  // Store spinner timer reference
-  container._docussSpinnerTimer = spinnerTimer
 
-  // Set timeout for retry or error
+  // Schedule next check
   container._docussConnectionTimer = setTimeout(() => {
-    container._docussRetryCount++
-    
-    if (container._docussRetryCount < maxRetries) {
-      const remaining = (maxRetries - container._docussRetryCount) * (retryDelay / 1000)
-      console.warn(`\u26a0\ufe0f Connection retry ${container._docussRetryCount}/${maxRetries}, estimated ${remaining} seconds remaining`)
-      
-      // Trigger iframe reload by calling didTransition again
-      iframe.didTransition(dcsRoute)
-      
-      // Retry connection check
-      waitForConnectionAndSetLayout({ container, iframe, layout, dcsRoute, retryCount: container._docussRetryCount })
-    } else {
-      console.error('\u274c Max connection retries reached, showing error')
-      hideSpinner()
-      
-      // Store the target route for retry button
-      container._docussFailedRoute = dcsRoute
-      
-      // Display error with retry button
-      iframe._displayError(
-        'Connection Error',
-        `Unable to connect to the embedded website after ${maxRetries} attempts.<br/>` +
-        `Please check your internet connection.<br/><br/>` +
-        `<button onclick="window.location.reload()" style="padding:8px 16px; background:#00a955; color:white; border:none; border-radius:4px; cursor:pointer; font-size:14px;">Reload Page</button>`
-      )
-      
-      // Auto-dismiss after 10 seconds and return to layout 0
-      setTimeout(() => {
-        container.dcsLayout.setLayout(0)
-        container._docussRetryCount = 0
-        delete container._docussPendingLayout
-        delete container._docussFailedRoute
-      }, 10000)
-    }
-  }, retryDelay)
+    waitForConnectionAndSetLayout({ container, iframe, layout, dcsRoute, startTime })
+  }, CONNECTION_CHECK_INTERVAL)
 }
 
 //------------------------------------------------------------------------------
@@ -125,6 +119,30 @@ export function onDidTransition({
   queryParamsOnly
 }) {
   console.log('🔄 onDidTransition called with route:', routeName, 'queryParamsOnly:', queryParamsOnly)
+  
+  // ============================================================
+  // STATE CLEANUP: Clear any pending state from previous route
+  // ============================================================
+  // This prevents stale messages from the previous route from
+  // affecting the new route. The iframe.didTransition() call will
+  // increment the routeSequenceId, invalidating any in-flight messages.
+  
+  // Clear connection timers
+  if (container._docussConnectionTimer) {
+    clearTimeout(container._docussConnectionTimer)
+    container._docussConnectionTimer = null
+  }
+  if (container._docussRecoveryTimer) {
+    clearTimeout(container._docussRecoveryTimer)
+    container._docussRecoveryTimer = null
+  }
+  
+  // Clear pending layout (will be set fresh if needed)
+  delete container._docussPendingLayout
+  container._docussSpinnerShown = false
+  
+  // Hide spinner if showing from previous route
+  hideSpinner()
   
   // Log timing if enabled
   if (window.dcsTimingLog) {

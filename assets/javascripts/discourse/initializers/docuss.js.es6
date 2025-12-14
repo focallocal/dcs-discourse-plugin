@@ -235,6 +235,11 @@ export default {
       // ========================================
       const handlePageChange = (data) => {
         try {
+          // ============================================================
+          // CLEANUP: Clear all pending state from previous navigation
+          // ============================================================
+          // This prevents stale state from affecting the new navigation
+          
           // Reset retry count on manual navigation
           if (container._docussRetryCount) {
             console.log('\u27f3 Resetting retry count on navigation')
@@ -250,6 +255,16 @@ export default {
             clearTimeout(container._docussSpinnerTimer)
             container._docussSpinnerTimer = null
           }
+          if (container._docussRecoveryTimer) {
+            clearTimeout(container._docussRecoveryTimer)
+            container._docussRecoveryTimer = null
+          }
+          
+          // Reset spinner shown flag for new navigation
+          container._docussSpinnerShown = false
+          
+          // Clear pending layout - new navigation takes precedence
+          delete container._docussPendingLayout
           
           let routeName = resolveRouteName(data);
           

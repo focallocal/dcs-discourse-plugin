@@ -68,13 +68,14 @@ class ComToClientClass {
    * @param {RoutePushedParams}
    * BEWARE: descr should be the original serialized descr
    */
-  postDiscourseRoutePushed({ route, descr, counts, clientContext, origin }) {
+  postDiscourseRoutePushed({ route, descr, counts, clientContext, origin, routeSequenceId }) {
     const data = {
       ['route']: serializeRoute(route),
       ['descr']: descr,
       ['counts']: counts,
       ['clientContext']: clientContext,
-      ['origin']: origin
+      ['origin']: origin,
+      ['routeSequenceId']: routeSequenceId
     }
     log('postDiscourseRoutePushed', data)
     this._bellhop.send('m2', data)
@@ -123,7 +124,8 @@ class ComToClientClass {
       const data = {
         category: e.data['category'],
         discourseTitle: e.data['discourseTitle'],
-        error: e.data['error']
+        error: e.data['error'],
+        routeSequenceId: e.data['routeSequenceId']
       }
       cb(data)
     })

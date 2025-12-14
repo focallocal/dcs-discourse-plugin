@@ -432,6 +432,12 @@ export class DcsIFrame {
 		this.additionalRedirects = null
 		this.connectionTimer = null
 		this.pendingTopicPromises = new Map()
+		
+		// Route sequence tracking for race condition prevention
+		// Incremented on each route change, included in m2 messages, echoed back in m6
+		this.routeSequenceId = 0
+		// Cache the last sent sequence ID to validate incoming responses
+		this.lastSentSequenceId = 0
 
 		// Listen for messages from fl-maps iframe
 		window.addEventListener('message', (event) => {
@@ -711,6 +717,13 @@ export class DcsIFrame {
 		log('didTransition: ', route)
 
 		//================================
+		
+		// Increment route sequence ID for race condition prevention
+		// This ID will be sent with m2 and expected back with m6
+		this.routeSequenceId++
+		log('didTransition: routeSequenceId now', this.routeSequenceId)
+
+		//================================
 
 		// resolve empty page name for route "docuss"
 		// We *need* a complete route, because the route will be forwarded to client
@@ -882,6 +895,9 @@ export class DcsIFrame {
 		u.dev.assert(this.currentRoute)
 		u.dev.assert(this.currentDescr)
 
+		// Track the sequence ID we're sending so we can validate responses
+		this.lastSentSequenceId = this.routeSequenceId
+
 		// Beware, there might be no page previously loaded (so no comToClient
 		// yet): this is the case when startup occurs on a pure Discourse route
 		// (such as Admin)
@@ -891,7 +907,8 @@ export class DcsIFrame {
 				descr: this.currentDescr.originalDescr,
 				counts: this.currentDescr.counts,
 				clientContext: this.clientContext,
-				origin: location.origin
+				origin: location.origin,
+				routeSequenceId: this.routeSequenceId
 			})
 
 			// Also send via postMessage for direct consumption by fl-maps
@@ -1210,7 +1227,26 @@ export class DcsIFrame {
 	onSetRouteProps(args) {
 		log('onSetRouteProps: ', arguments)
 
-		const { error, category, discourseTitle } = args
+		const { error, category, discourseTitle, routeSequenceId } = args
+
+		// ============================================================
+		// RACE CONDITION PREVENTION: Validate route sequence ID
+		// ============================================================
+		// If the message's sequence ID doesn't match our current route,
+		// this message is stale (user navigated away before it arrived).
+		// We skip it gracefully and ensure the page is in a valid state.
+		
+		if (routeSequenceId !== undefined && routeSequenceId !== this.routeSequenceId) {
+			console.debug('[Docuss] onSetRouteProps skipped (stale)', {
+				reason: 'sequence-mismatch',
+				messageSequenceId: routeSequenceId,
+				currentSequenceId: this.routeSequenceId,
+				currentRoute: this.currentRoute
+			})
+			// Message is stale - don't apply it, but ensure valid state
+			// The current route should already be correctly displayed
+			return
+		}
 
 		// Case error
 		if (error) {
@@ -1295,6 +1331,17 @@ export class DcsIFrame {
 				resolvedCategoryId
 			})
 			this.container.isDocussActive = false
+			
+			// ============================================================
+			// RECOVERY: Ensure page is in a valid display state
+			// ============================================================
+			// If layout is 0, we should be showing iframe only
+			// If layout is 1, we should be showing Discourse only
+			// Make sure the current layout is correctly applied
+			if (this.currentRoute?.layout !== undefined) {
+				this.container.dcsLayout.setLayout(this.currentRoute.layout)
+			}
+			
 			if (category && !resolvedCategory) {
 				u.logError(`Category "${category}" not found in Discourse`)
 			}
