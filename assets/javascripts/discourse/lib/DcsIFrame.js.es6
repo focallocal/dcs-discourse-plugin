@@ -333,6 +333,49 @@ const DcsTiming = {
 		}
 	},
 	
+	_detectBrowser(ua) {
+		if (ua.includes('Firefox/')) {
+			const match = ua.match(/Firefox\/(\d+(\.\d+)?)/)
+			return { name: 'Firefox', version: match ? match[1] : 'unknown' }
+		}
+		if (ua.includes('Edg/')) {
+			const match = ua.match(/Edg\/(\d+(\.\d+)?)/)
+			return { name: 'Edge', version: match ? match[1] : 'unknown' }
+		}
+		if (ua.includes('OPR/') || ua.includes('Opera/')) {
+			const match = ua.match(/(?:OPR|Opera)\/(\d+(\.\d+)?)/)
+			return { name: 'Opera', version: match ? match[1] : 'unknown' }
+		}
+		if (ua.includes('Brave')) {
+			return { name: 'Brave', version: 'unknown' }
+		}
+		if (ua.includes('Chrome/')) {
+			const match = ua.match(/Chrome\/(\d+(\.\d+)?)/)
+			return { name: 'Chrome', version: match ? match[1] : 'unknown' }
+		}
+		if (ua.includes('Safari/') && !ua.includes('Chrome')) {
+			const match = ua.match(/Version\/(\d+(\.\d+)?)/)
+			return { name: 'Safari', version: match ? match[1] : 'unknown' }
+		}
+		return { name: 'Unknown', version: 'unknown' }
+	},
+	
+	_detectDevice(ua) {
+		const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(ua)
+		const isTablet = /iPad|Android(?!.*Mobile)/i.test(ua)
+		let os = 'Unknown'
+		if (ua.includes('Windows')) os = 'Windows'
+		else if (ua.includes('Mac OS')) os = 'macOS'
+		else if (ua.includes('iPhone') || ua.includes('iPad')) os = 'iOS'
+		else if (ua.includes('Android')) os = 'Android'
+		else if (ua.includes('Linux')) os = 'Linux'
+		
+		return {
+			type: isTablet ? 'Tablet' : (isMobile ? 'Mobile' : 'Desktop'),
+			os: os
+		}
+	},
+	
 	_downloadAllEvents() {
 		const allEvents = this._getAllEvents()
 		if (allEvents.length === 0) return
@@ -342,6 +385,16 @@ const DcsTiming = {
 		const startDate = new Date(baseTime)
 		const endDate = new Date(sorted[sorted.length - 1].timestamp)
 		
+		// Detect browser and device
+		const ua = navigator.userAgent
+		const browser = this._detectBrowser(ua)
+		const device = this._detectDevice(ua)
+		const screen = `${window.screen.width}x${window.screen.height}`
+		const viewport = `${window.innerWidth}x${window.innerHeight}`
+		const connection = navigator.connection ? 
+			`${navigator.connection.effectiveType || 'unknown'} (${navigator.connection.downlink || '?'}Mbps)` : 
+			'unknown'
+		
 		const lines = [
 			'DCS Timing Log - Extended Collection',
 			'=====================================',
@@ -350,7 +403,16 @@ const DcsTiming = {
 			`Collection ended: ${endDate.toISOString()}`,
 			`Duration: ${((endDate - startDate) / 60000).toFixed(1)} minutes`,
 			`Total events: ${sorted.length}`,
-			`User Agent: ${navigator.userAgent}`,
+			'',
+			'Device Information:',
+			'-------------------',
+			`Browser: ${browser.name} ${browser.version}`,
+			`Device Type: ${device.type}`,
+			`OS: ${device.os}`,
+			`Screen: ${screen}`,
+			`Viewport: ${viewport}`,
+			`Connection: ${connection}`,
+			`User Agent: ${ua}`,
 			'',
 			'Timeline:',
 			'---------'
@@ -924,24 +986,33 @@ export class DcsIFrame {
 
 			// Send dcsOpenForm message for m_gather2 and m_gather3 pages
 			// This tells fl-maps to open the new event form with a specific formType
-			// Retry mechanism: send immediately, then at 500ms and 1500ms for Brave compatibility
+			// Retry mechanism: 4 attempts at 0ms, 500ms, 1500ms, 3000ms for Brave/mobile compatibility
 			if (iframe && iframe.contentWindow) {
 				const pageName = this.currentRoute.pageName
 				if (pageName === 'm_gather2' || pageName === 'm_gather3') {
 					const formType = pageName === 'm_gather2' ? 2 : 3
+					let attemptCount = 0
+					const maxAttempts = 4
+					const retryDelays = [0, 500, 1500, 3000]
+					
 					const sendFormMessage = () => {
-						console.log(`📤 Sending dcsOpenForm postMessage for form type ${formType}`)
-						DcsTiming.log('Sending dcsOpenForm', { formType })
-						iframe.contentWindow.postMessage({
-							type: 'dcsOpenForm',
-							formType: formType
-						}, '*')
+						attemptCount++
+						console.log(`📤 Sending dcsOpenForm postMessage for form type ${formType} (attempt ${attemptCount}/${maxAttempts})`)
+						DcsTiming.log('Sending dcsOpenForm', { formType, attempt: attemptCount })
+						try {
+							iframe.contentWindow.postMessage({
+								type: 'dcsOpenForm',
+								formType: formType
+							}, '*')
+						} catch (e) {
+							console.warn('❌ Failed to send dcsOpenForm:', e)
+						}
 					}
 					
-					// Send immediately and retry twice for browsers where listener may not be ready
-					sendFormMessage()
-					setTimeout(sendFormMessage, 500)
-					setTimeout(sendFormMessage, 1500)
+					// Send with retries at increasing intervals
+					retryDelays.forEach(delay => {
+						setTimeout(sendFormMessage, delay)
+					})
 				}
 			}
 		}

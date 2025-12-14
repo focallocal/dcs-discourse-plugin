@@ -43,8 +43,9 @@ const CONNECTION_CHECK_INTERVAL = 100
 // Time before showing spinner (ms) - prevents flicker on fast connections
 const SPINNER_DELAY = 300
 
-// Max time to wait for connection (ms) - based on timing data showing 500-700ms typical
-const MAX_CONNECTION_WAIT = 2000
+// Max time to wait for connection (ms) - increased from 2000ms based on timing data
+// showing 500-700ms typical but longer on slow mobile connections
+const MAX_CONNECTION_WAIT = 3000
 
 // Time before auto-recovery to layout 0 (ms)
 const RECOVERY_TIMEOUT = 5000
@@ -189,7 +190,7 @@ function onDidTransition2({ container, iframe, routeName, queryParamsOnly }) {
     const model = route['currentModel']
     // Wait for the "tags" field. The "tags" field is not always there
     // immediately, especially when creating a new topic
-    // 15x200 = 3s total. Tried 1,5s before -> not enough.
+    // 25x200 = 5s total. Increased from 3s for slower connections.
     const hasTagsProp = () => model.hasOwnProperty('tags')
     const tagWaitStart = Date.now()
     
@@ -197,7 +198,7 @@ function onDidTransition2({ container, iframe, routeName, queryParamsOnly }) {
       window.dcsTimingLog('Waiting for tags property', { topicId: model?.id })
     }
     
-    u.async.retryDelay(hasTagsProp, 15, 200).then(
+    u.async.retryDelay(hasTagsProp, 25, 200).then(
       () => {
         const waitTime = Date.now() - tagWaitStart
         if (window.dcsTimingLog) {
