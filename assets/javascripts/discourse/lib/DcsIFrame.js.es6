@@ -710,26 +710,29 @@ export class DcsIFrame {
 			this.descrArray = res[0]
 
 			// Get the tag list
-			const tags = res[1]['tags']
+			let tags = res[1]['tags']
 
-			// Check for required tags
-			const check = tag => {
-				if (!tags.find(tagObj => tagObj['id'] === tag)) {
-					this._displayError(
-						'Error in Docuss setup',
-						`Missing required tag "${tag}"`
-					)
-					throw 'Docuss error - See the error message in the app'
+			// Ensure required tags are present in the list.
+			// Discourse's /tags.json may filter out tags with public_topic_count=0
+			// for non-admin users, so dcs-comment and dcs-discuss may not appear
+			// even though they exist. Inject them with count 0 if missing.
+			// Note: Discourse 2025+ returns 'id' as a database integer, tag name
+			// is in the 'name' (or 'text') field. Older versions used 'id' as name.
+			const getTagName = tagObj => tagObj['name'] || tagObj['text'] || tagObj['id']
+			const ensureTag = tag => {
+				if (!tags.find(tagObj => getTagName(tagObj) === tag)) {
+					console.warn(`[Docuss] Required tag "${tag}" not returned by /tags.json (likely filtered by Discourse because public_topic_count=0). Assuming it exists.`)
+					tags.push({ id: tag, name: tag, text: tag, count: 0 })
 				}
 			}
-			check('dcs-comment')
-			check('dcs-discuss')
+			ensureTag('dcs-comment')
+			ensureTag('dcs-discuss')
 
 			// Extract docuss tags. Beware that we need to wait for descrPromise
 			// to resolve before we can do this, because we need the DcsTag
 			// to be initialized
 			const allCounts = tags.reduce((res, tagObj) => {
-				const tag = tagObj['id']
+				const tag = getTagName(tagObj)
 				const count = tagObj['count']
 				if (count !== 0) {
 					const parsed = DcsTag.parse(tag)

@@ -260,19 +260,24 @@ function onDidTransition3({ container, iframe, routeName, queryParamsOnly }) {
   if (routeName === 'tags.intersection') {
     const route = container.lookup('route:tags.intersection')
     const model = route['currentModel']
+    // Discourse 2025+ changed tag.id from name string to database integer.
+    // The tag name is now in tag.name. Fall back to tag.id for older versions.
+    const primaryTagName = model?.tag?.name || model?.tag?.id
     console.log('🏷️ tags.intersection route detected:', {
       tagId: model?.tag?.id,
+      tagName: model?.tag?.name,
+      primaryTagName,
       additionalTags: model?.additionalTags,
       allTags: model?.tags
     })
-    if (model?.tag?.id === 'dcs-comment' || model?.tag?.id === 'dcs-discuss') {
+    if (primaryTagName === 'dcs-comment' || primaryTagName === 'dcs-discuss') {
       const tag = model.additionalTags?.[0]
       console.log('✓ Found dcs mode tag, dcsTag:', tag)
       const parsed = DcsTag.parse(tag)
       if (parsed) {
         console.log('✓ DcsTag parsed:', parsed)
         const { pageName, triggerId } = parsed
-        const isCommentMode = model.tag.id === 'dcs-comment'
+        const isCommentMode = primaryTagName === 'dcs-comment'
         const interactMode = isCommentMode ? 'COMMENT' : 'DISCUSS'
         const layout = container.dcsLayout.getShowRightQP() ? 3 : 2
         console.log('→ Setting layout to:', layout, 'for mode:', interactMode)
@@ -296,7 +301,7 @@ function onDidTransition3({ container, iframe, routeName, queryParamsOnly }) {
         console.log('⚠️ Failed to parse dcsTag')
       }
     } else {
-      console.log('⚠️ Not a dcs-comment/dcs-discuss route, tags are:', model?.tag?.id, model?.additionalTags)
+      console.log('⚠️ Not a dcs-comment/dcs-discuss route, tags are:', primaryTagName, model?.additionalTags)
     }
   }
 

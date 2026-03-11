@@ -87,7 +87,20 @@ export const discourseAPI = {
 	},
 
 	getTagList() {
-		return discourseAPI._request({ method: 'GET', path: '/tags.json' })
+		return discourseAPI._request({ method: 'GET', path: '/tags.json' }).then(response => {
+			// Discourse may split tags between 'tags' (ungrouped) and
+			// 'extras.tag_groups' (grouped) when tags_listed_by_group is enabled.
+			// Merge them all into a single flat array.
+			let allTags = Array.isArray(response.tags) ? [...response.tags] : []
+			if (response.extras && Array.isArray(response.extras.tag_groups)) {
+				response.extras.tag_groups.forEach(group => {
+					if (Array.isArray(group.tags)) {
+						allTags = allTags.concat(group.tags)
+					}
+				})
+			}
+			return { tags: allTags }
+		})
 	},
 
 	getTopicList({ tag }) {
